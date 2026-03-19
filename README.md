@@ -106,6 +106,9 @@ GMAIL_APP_PASSWORD="your-app-password"
 # Payment Gateway (Duitku)
 DUITKU_MERCHANT_CODE="your-merchant-code"
 DUITKU_API_KEY="your-api-key"
+
+# Domain Availability (WhoisFreaks)
+WHOISFREAKS_API_KEY="your-api-key"
 ```
 
 ## 📊 Database Schema
