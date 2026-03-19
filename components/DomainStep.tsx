@@ -51,68 +51,42 @@ export default function DomainStep() {
   const checkDomainAvailability = async (domain: string): Promise<boolean> => {
     try {
       await new Promise(resolve => setTimeout(resolve, 300));
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
-      
+
       const response = await fetch(
-        `https://rdap.org/domain/${domain}`,
-        { 
+        `/api/public/domain-availability?domain=${encodeURIComponent(domain)}`,
+        {
           signal: controller.signal,
           headers: {
             'Accept': 'application/json'
           }
         }
       );
-      
+
       clearTimeout(timeoutId);
-      
-      if (response.status === 404) {
-        console.log(`${domain} - AVAILABLE (RDAP 404)`);
-        return true;
-      }
-      
+
       if (!response.ok) {
-        console.log(`RDAP error for ${domain}: ${response.status}, checking DNS...`);
+        console.log(`Availability API error for ${domain}: ${response.status}, checking DNS...`);
         return checkDomainViaDNS(domain);
       }
-      
+
       const data = await response.json();
-      console.log(`RDAP check for ${domain}:`, data);
-      
-      if (data.status && data.status.length > 0) {
-        const hasActiveStatus = data.status.some((status: any) => 
-          status.status === 'active' || status.status === 'registered'
-        );
-        if (hasActiveStatus) {
-          console.log(`${domain} - NOT AVAILABLE (RDAP active status)`);
-          return false;
-        }
+      console.log(`Availability API check for ${domain}:`, data);
+
+      if (typeof data?.isAvailable === 'boolean') {
+        return data.isAvailable;
       }
-      
-      if (data.events && data.events.length > 0) {
-        const hasCreationEvent = data.events.some((event: any) => 
-          event.eventAction === 'registration' || event.eventAction === 'creation'
-        );
-        if (hasCreationEvent) {
-          console.log(`${domain} - NOT AVAILABLE (RDAP has creation event)`);
-          return false;
-        }
-      }
-      
-      if (data.entities && data.entities.length > 0) {
-        console.log(`${domain} - NOT AVAILABLE (RDAP has entities)`);
-        return false;
-      }
-      
-      console.log(`${domain} - checking DNS (no clear RDAP data)`);
+
+      console.log(`${domain} - unexpected availability API response, checking DNS...`);
       return checkDomainViaDNS(domain);
-      
+
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log(`RDAP timeout for ${domain}, checking DNS...`);
+        console.log(`Availability API timeout for ${domain}, checking DNS...`);
       } else {
-        console.error(`RDAP error for ${domain}:`, error);
+        console.error(`Availability API error for ${domain}:`, error);
       }
       return checkDomainViaDNS(domain);
     }
