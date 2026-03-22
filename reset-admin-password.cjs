@@ -18,7 +18,7 @@ async function resetAdminPassword() {
       // Create new admin if doesn't exist
       admin = await prisma.user.create({
         data: {
-          email: 'admin@exputra.com',
+          email: 'admin@exputra.id',
           name: 'Administrator',
           password: hashedPassword,
           role: 'ADMIN'

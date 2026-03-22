@@ -106,7 +106,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-2">
-              <span>📧</span> {settings.contactEmail || 'cs@exputra.com'}
+              <span>📧</span> {settings.contactEmail || 'cs@exputra.id'}
             </span>
             <span className="flex items-center gap-2">
               <span>🕐</span> Jam Kerja: 08.00 - 17.00
@@ -470,7 +470,7 @@ export default function Home() {
                   </div>
                   <div>
                     <p className="text-sm text-slate-500 mb-1">Surel</p>
-                    <p className="font-semibold text-slate-900 text-lg">{settings.contactEmail || 'cs@exputra.com'}</p>
+                    <p className="font-semibold text-slate-900 text-lg">{settings.contactEmail || 'cs@exputra.id'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
