@@ -12,6 +12,19 @@ interface PaymentMethod {
   duitkuCode: string;
 }
 
+function formatExpiryTime(expiryTime?: string): string {
+  if (!expiryTime) return '-';
+  const d = new Date(expiryTime);
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 const paymentMethods: PaymentMethod[] = [
   { id: 'va-bni', name: 'BNI Virtual Account', icon: '🏦', duitkuCode: 'I1' },
   { id: 'va-bri', name: 'BRI Virtual Account', icon: '🏦', duitkuCode: 'BR' },
@@ -169,7 +182,7 @@ export default function PaymentPage() {
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
             <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 text-center sm:text-left">
-              Batas Pembayaran: 24 Jan 2026, 21:06
+              Batas Pembayaran: {formatExpiryTime(paymentData?.expiryTime)}
             </h2>
             <div className="text-center py-4 sm:py-8">
               <p className="text-3xl sm:text-5xl font-bold text-gray-900 mb-2">
