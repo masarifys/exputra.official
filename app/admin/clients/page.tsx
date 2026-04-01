@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Search, Plus, Trash2, Edit, Mail, Phone, MapPin, X } from 'lucide-react';
@@ -36,11 +36,7 @@ export default function ClientsPage() {
     const [showModal, setShowModal] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
 
-    useEffect(() => {
-        fetchClients();
-    }, [statusFilter, search]);
-
-    const fetchClients = async () => {
+    const fetchClients = useCallback(async () => {
         try {
             setLoading(true);
             const params = new URLSearchParams();
@@ -55,7 +51,11 @@ export default function ClientsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [statusFilter, search]);
+
+    useEffect(() => {
+        fetchClients();
+    }, [fetchClients]);
 
     const handleSelectAll = () => {
         if (selectedClients.length === clients.length) {

@@ -5,6 +5,11 @@ import { getCommissionPercentByTarget, parseAffiliateSyncConfig } from '@/lib/af
 
 const prismaAny = prisma as any;
 
+type AffiliateServiceLinkRow = {
+  servicePackageId: string;
+  serviceOrders: Array<{ total: number }>;
+};
+
 async function getAvailableAffiliateBalance(customerId: string): Promise<number> {
   const [settingsRow] = await prisma.$queryRaw<Array<{ commissionPercent: number; syncedPackageIds: string | null }>>`
     SELECT commissionPercent, syncedPackageIds
@@ -16,7 +21,7 @@ async function getAvailableAffiliateBalance(customerId: string): Promise<number>
   const commissionPercent = Number(settingsRow?.commissionPercent ?? process.env.AFFILIATE_COMMISSION_PERCENT ?? '10');
   const parsedConfig = parseAffiliateSyncConfig(settingsRow?.syncedPackageIds ?? null);
 
-  const [links, serviceLinks, payoutRequests] = await Promise.all([
+  const [links, rawServiceLinks, payoutRequests] = await Promise.all([
     prisma.affiliateLink.findMany({
       where: { customerId },
       include: {
@@ -54,6 +59,8 @@ async function getAvailableAffiliateBalance(customerId: string): Promise<number>
       },
     }),
   ]);
+
+  const serviceLinks = rawServiceLinks as AffiliateServiceLinkRow[];
 
   const packageCommission = links.reduce((sum, link) => {
     const linkRevenue = link.orders.reduce((orderSum, order) => orderSum + order.total, 0);

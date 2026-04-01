@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Download, Filter } from 'lucide-react';
 
 interface PaymentLog {
@@ -22,15 +22,7 @@ export default function PaymentLogsPage() {
   const [filter, setFilter] = useState<'ALL' | 'SUCCESS' | 'FAILED'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    fetchLogs();
-
-    // Auto-refresh every 30 seconds to keep logs in sync
-    const interval = setInterval(fetchLogs, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     // Only show loading on initial fetch to avoid UI flicker during auto-refresh
     if (logs.length === 0) setLoading(true);
     try {
@@ -42,7 +34,15 @@ export default function PaymentLogsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [logs.length]);
+
+  useEffect(() => {
+    fetchLogs();
+
+    // Auto-refresh every 30 seconds to keep logs in sync
+    const interval = setInterval(fetchLogs, 30000);
+    return () => clearInterval(interval);
+  }, [fetchLogs]);
 
   const filteredLogs = logs
     .filter(log => {

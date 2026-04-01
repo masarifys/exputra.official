@@ -76,7 +76,7 @@ export default function ProjectDetail({
     setIsEditingCredentials(false);
     setIsEditingNotes(false);
     setShowPassword(false);
-  }, [order.id]);
+  }, [order.id, order.loginUrl, order.notes, order.websiteEmail, order.websitePassword, order.websiteUsername]);
 
   const currentStatusIndex = statusSteps.findIndex(step => step.status === order.status);
 

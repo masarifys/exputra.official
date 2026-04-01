@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Type, Plus, Edit, Trash2, X, ExternalLink, Save } from 'lucide-react';
 import Button from '@/components/Button';
+import Image from 'next/image';
 
 interface Template {
   id: string;
@@ -185,10 +186,12 @@ export default function TemplatesPage() {
             {/* Thumbnail */}
             <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
               {template.thumbnail ? (
-                <img
+                <Image
                   src={template.thumbnail}
                   alt={template.name}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform"
+                  fill
+                  className="object-cover hover:scale-105 transition-transform"
+                  sizes="(max-width: 768px) 100vw, 33vw"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">

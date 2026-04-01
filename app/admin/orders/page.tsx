@@ -698,7 +698,7 @@ function OrderAddModal({ onClose, onSuccess, clients, domains, packages, templat
     const svcTotal = formData.services.reduce((acc, s) => acc + s.price, 0);
     const total = sub + svcTotal - formData.discount;
     setFormData(prev => ({ ...prev, subtotal: sub + svcTotal, total: total > 0 ? total : 0 }));
-  }, [formData.domainId, formData.packageId, formData.templateId, formData.services, formData.discount]);
+  }, [formData.domainId, formData.packageId, formData.templateId, formData.services, formData.discount, domains, packages, templates]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

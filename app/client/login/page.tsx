@@ -33,7 +33,7 @@ function ClientLoginPageInner() {
     } catch {
       // Ignore malformed local storage payload
     }
-  }, []);
+  }, [email, phone]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

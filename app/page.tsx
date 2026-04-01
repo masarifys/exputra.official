@@ -152,7 +152,7 @@ export default function Home() {
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center">
-            <img src="/logo.png" alt={settings.siteName} className="h-8 md:h-10 w-auto" />
+            <Image src="/logo.png" alt={settings.siteName} width={160} height={40} className="h-8 md:h-10 w-auto" />
           </Link>
           
           {/* Desktop Nav */}
@@ -203,11 +203,12 @@ export default function Home() {
       <section className="relative text-white overflow-hidden">
         {/* Background Image */}
         <div className="absolute inset-0 bg-slate-900">
-          <img 
-            src="/hero-bg.jpg" 
-            alt="" 
-            className="w-full h-full object-cover opacity-40"
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          <Image
+            src="/hero-bg.jpg"
+            alt=""
+            fill
+            className="object-cover opacity-40"
+            sizes="100vw"
           />
         </div>
         {/* Overlay gradient */}
@@ -240,10 +241,12 @@ export default function Home() {
             </div>
             <div className="hidden md:block relative">
               <div className="relative w-full h-96">
-                <img 
-                  src="/hero-image.png" 
-                  alt="Hero" 
-                  className="w-full h-full object-contain"
+                <Image
+                  src="/hero-image.png"
+                  alt="Hero"
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                 />
               </div>
             </div>

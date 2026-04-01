@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Plus, Save, X } from 'lucide-react';
 import Button from '@/components/Button';
 
@@ -218,7 +218,7 @@ export default function AdminServiceOrdersPage() {
     return findPackageByCode(serviceId, `EXT_${months}M`);
   };
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/services?includePackages=true');
       const data = await res.json();
@@ -228,9 +228,9 @@ export default function AdminServiceOrdersPage() {
       console.error('Failed to fetch services:', error);
       setServices([]);
     }
-  };
+  }, []);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       const query = statusFilter === 'ALL' ? '' : `?status=${statusFilter}`;
@@ -256,7 +256,7 @@ export default function AdminServiceOrdersPage() {
         const packageCode = item.servicePackage?.code?.toUpperCase() || '';
         const mode: PricingMode = packageCode === 'REGULAR' ? 'REGULAR' : packageCode === 'EXPRESS' ? 'EXPRESS' : 'CUSTOM';
 
-        nextTabs[item.id] = tabs[item.id] || 'detail';
+        nextTabs[item.id] = 'detail';
         nextNotes[item.id] = item.progressNotes || '';
         nextService[item.id] = item.service?.id || '';
         nextPackage[item.id] = item.servicePackage?.id || item.servicePackageId || '';
@@ -275,7 +275,13 @@ export default function AdminServiceOrdersPage() {
         nextDirty[item.id] = defaultDirtyState();
       });
 
-      setTabs(nextTabs);
+      setTabs((prev) => {
+        const merged: Record<string, OrderTab> = {};
+        list.forEach((item) => {
+          merged[item.id] = prev[item.id] || nextTabs[item.id];
+        });
+        return merged;
+      });
       setNotesDraft(nextNotes);
       setServiceDraft(nextService);
       setPackageDraft(nextPackage);
@@ -288,15 +294,15 @@ export default function AdminServiceOrdersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     fetchServices();
-  }, []);
+  }, [fetchServices]);
 
   useEffect(() => {
     fetchOrders();
-  }, [statusFilter]);
+  }, [fetchOrders]);
 
   const stats = useMemo(() => ({
     total: orders.length,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Button from '@/components/Button';
 import { useServiceOrderStore } from '@/store/useServiceOrderStore';
@@ -8,7 +8,7 @@ import { useServiceOrderStore } from '@/store/useServiceOrderStore';
 type ServiceOrderStatus = 'PENDING' | 'PAID' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED';
 type ViewState = 'checking' | 'paid' | 'unpaid' | 'pending';
 
-export default function ServicesPaymentSuccessPage() {
+function ServicesPaymentSuccessPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setCurrentStep = useServiceOrderStore((state) => state.setCurrentStep);
@@ -216,5 +216,13 @@ export default function ServicesPaymentSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ServicesPaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center">Memuat...</div>}>
+      <ServicesPaymentSuccessPageContent />
+    </Suspense>
   );
 }

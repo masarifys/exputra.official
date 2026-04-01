@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useCallback } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -46,11 +47,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
     const [submittingPayment, setSubmittingPayment] = useState(false);
 
-    useEffect(() => {
-        fetchInvoice();
-    }, [id]);
-
-    const fetchInvoice = async () => {
+    const fetchInvoice = useCallback(async () => {
         try {
             setLoading(true);
             const [res, settingsRes] = await Promise.all([
@@ -75,7 +72,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         } finally {
             setLoading(false);
         }
-    };
+    }, [id, router]);
+
+    useEffect(() => {
+        fetchInvoice();
+    }, [fetchInvoice]);
 
     const handleDelete = async () => {
         if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
@@ -215,10 +216,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                     <div className="flex justify-between items-start border-b border-gray-100 pb-8 mb-8">
                         <div>
                             {settings?.logo ? (
-                                <img 
-                                    src={settings.logo.startsWith('http') || settings.logo.startsWith('/') ? settings.logo : `/${settings.logo}`} 
-                                    alt={settings?.siteName || 'Logo'} 
-                                    className="h-12 w-auto object-contain mb-4" 
+                                <Image
+                                    src={settings.logo.startsWith('http') || settings.logo.startsWith('/') ? settings.logo : `/${settings.logo}`}
+                                    alt={settings?.siteName || 'Logo'}
+                                    width={160}
+                                    height={48}
+                                    className="h-12 w-auto object-contain mb-4"
                                 />
                             ) : (
                                 <div className="w-12 h-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xl mb-4">

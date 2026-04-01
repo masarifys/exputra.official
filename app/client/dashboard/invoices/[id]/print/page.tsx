@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import prisma from '@/lib/prisma';
 import { resolveClientSessionCustomer } from '@/lib/client-session';
 import PrintButton from './PrintButton';
+import Image from 'next/image';
 
 export default async function PrintInvoicePage(props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
@@ -142,10 +143,12 @@ export default async function PrintInvoicePage(props: { params: Promise<{ id: st
                     <div className="flex justify-between items-start border-b-2 border-gray-100 pb-8 mb-8">
                         <div>
                             {settings?.logo ? (
-                                <img 
-                                    src={settings.logo.startsWith('http') || settings.logo.startsWith('/') ? settings.logo : `/${settings.logo}`} 
-                                    alt={settings?.siteName || 'Logo'} 
-                                    className="h-14 w-auto object-contain mb-4" 
+                                <Image
+                                    src={settings.logo.startsWith('http') || settings.logo.startsWith('/') ? settings.logo : `/${settings.logo}`}
+                                    alt={settings?.siteName || 'Logo'}
+                                    width={180}
+                                    height={56}
+                                    className="h-14 w-auto object-contain mb-4"
                                 />
                             ) : (
                                 <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center text-white font-black text-2xl mb-4 shadow-sm">

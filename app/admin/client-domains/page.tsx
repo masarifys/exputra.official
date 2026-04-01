@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Globe, Search, Plus, Trash2, Edit, X, Zap } from 'lucide-react';
 import DataExportImport from '@/components/DataExportImport';
@@ -60,11 +60,7 @@ export default function DomainsPage() {
     const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
     const [autoAddLoading, setAutoAddLoading] = useState(false);
 
-    useEffect(() => {
-        fetchData();
-    }, [clientEmail, statusFilter, showExpiring]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
             const params = new URLSearchParams();
@@ -88,7 +84,11 @@ export default function DomainsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [clientEmail, statusFilter, showExpiring]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleSelectAll = () => {
         setSelected(selected.length === domains.length ? [] : domains.map(d => d.id));

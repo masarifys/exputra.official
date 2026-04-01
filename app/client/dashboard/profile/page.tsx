@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Mail, Phone, Building2, MapPin, Lock, Save, Eye, EyeOff, Calendar, Shield } from 'lucide-react';
 
@@ -29,11 +29,7 @@ export default function ClientProfilePage() {
         confirmPassword: '',
     });
 
-    useEffect(() => {
-        fetchProfile();
-    }, []);
-
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
         try {
             const res = await fetch('/api/client/profile');
             if (res.ok) {
@@ -46,7 +42,11 @@ export default function ClientProfilePage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [router]);
+
+    useEffect(() => {
+        fetchProfile();
+    }, [fetchProfile]);
 
     const handleProfileSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

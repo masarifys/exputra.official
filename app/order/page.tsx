@@ -86,7 +86,7 @@ export default function OrderPage() {
         }
       })
       .catch(() => setIsLoggedIn(false));
-  }, []);
+  }, [currentStep, setCurrentStep, setPersonalData]);
 
   // Memoize step component to prevent unnecessary re-renders
   const StepComponent = useMemo(() => {

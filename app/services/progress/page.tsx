@@ -103,7 +103,7 @@ export default function ServicesProgressPage() {
         setLastOrder(null);
       }
     }
-  }, []);
+  }, [setCurrentStep]);
 
   const handleNewOrder = () => {
     localStorage.removeItem('service-last-order');

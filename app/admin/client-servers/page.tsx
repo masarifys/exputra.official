@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import DataExportImport from '@/components/DataExportImport';
 
@@ -41,11 +41,7 @@ export default function ServersPage() {
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<Server | null>(null);
 
-    useEffect(() => {
-        fetchData();
-    }, [clientEmail, typeFilter, statusFilter]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
             const params = new URLSearchParams();
@@ -65,7 +61,11 @@ export default function ServersPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [clientEmail, typeFilter, statusFilter]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleSelectAll = () => {
         setSelected(selected.length === servers.length ? [] : servers.map(s => s.id));

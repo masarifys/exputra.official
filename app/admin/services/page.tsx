@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Wrench, Plus, Search, Edit, Trash2, X, Save, Layers } from 'lucide-react';
 import Button from '@/components/Button';
 
@@ -112,7 +112,7 @@ export default function ServicesPage() {
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [generatingForServiceId, setGeneratingForServiceId] = useState('');
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch('/api/admin/services?includePackages=true');
@@ -128,11 +128,11 @@ export default function ServicesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedServiceId]);
 
   useEffect(() => {
     fetchServices();
-  }, []);
+  }, [fetchServices]);
 
   const filteredServices = useMemo(() => {
     const q = search.toLowerCase();

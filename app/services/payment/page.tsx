@@ -90,7 +90,7 @@ export default function ServicesPaymentPage() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [setCurrentStep, setPersonalData, personalData]);
 
   useEffect(() => {
     if (mounted && (!selectedService || !selectedPackage)) {
@@ -121,7 +121,7 @@ export default function ServicesPaymentPage() {
     const expiry = new Date(Date.now() + 60 * 60 * 1000);
     setExpiredAt(expiry);
     setCountdown(getCountdownText(expiry));
-  }, [mounted, invoiceId]);
+  }, [mounted, invoiceId, selectedService, selectedPackage, router, setInvoiceId]);
 
   // Polling status
   useEffect(() => {

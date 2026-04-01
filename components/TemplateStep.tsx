@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useOrderStore } from '@/store/useOrderStore';
 import { Template } from '@/types';
+import Image from 'next/image';
 
 let _isLoggedInCache: boolean | null = null;
 
@@ -39,11 +40,12 @@ const TemplateCard = memo(function TemplateCard({
     >
       <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center relative overflow-hidden">
         {template.thumbnail ? (
-          <img 
-            src={template.thumbnail} 
+          <Image
+            src={template.thumbnail}
             alt={template.name}
-            className="w-full h-full object-cover"
-            loading="lazy"
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 33vw"
           />
         ) : (
           <span className="text-gray-400">No Preview</span>
@@ -99,7 +101,7 @@ export default function TemplateStep() {
         }
       })
       .catch(() => { _isLoggedInCache = false; });
-  }, []);
+  }, [setPersonalData]);
 
   const fetchTemplates = useCallback(async () => {
     try {

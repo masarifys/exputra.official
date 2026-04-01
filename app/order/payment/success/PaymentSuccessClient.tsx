@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Check, LayoutDashboard, ShoppingCart } from 'lucide-react';
@@ -36,67 +36,7 @@ export default function PaymentSuccessClient() {
 
     const resultCode = searchParams.get('resultCode');
 
-    useEffect(() => {
-        setIsHydrated(true);
-
-        if (resultCode && resultCode !== '00') {
-            console.error('[PaymentSuccess] Result code is not 00:', resultCode);
-            window.location.href =
-                '/order/payment/failed' + window.location.search;
-            return;
-        }
-
-        let timeoutId: NodeJS.Timeout;
-
-        const savedOrder = localStorage.getItem('pending-order');
-        if (savedOrder) {
-            try {
-                const parsed = JSON.parse(savedOrder);
-                setOrderData(parsed);
-
-                if (parsed.invoiceId) {
-                    console.log('[PaymentSuccess] Confirming payment for:', parsed.invoiceId);
-                    confirmPayment(parsed.invoiceId);
-                    
-                    // Add timeout - if confirmation takes too long, but we have resultCode=00, show success anyway
-                    timeoutId = setTimeout(() => {
-                        if (resultCode === '00') {
-                            console.warn('[PaymentSuccess] Confirmation timeout, but resultCode is 00. Forcing success.');
-                            setConfirmationStatus('confirmed');
-                        } else {
-                            console.warn('[PaymentSuccess] Confirmation timeout after 15 seconds');
-                            setConfirmationStatus('error');
-                        }
-                    }, 15000);
-                }
-            } catch (e) {
-                console.error('[PaymentSuccess] Failed to parse order data:', e);
-                setConfirmationStatus('error');
-            }
-        } else {
-            console.warn('[PaymentSuccess] No pending order in localStorage');
-            // If no localStorage data, try to fetch from API using invoiceId from URL
-            const invoiceId = searchParams.get('merchantOrderId');
-            if (invoiceId) {
-                console.log('[PaymentSuccess] Attempting to fetch order from API:', invoiceId);
-                confirmPayment(invoiceId);
-                
-                // Add timeout for API call too
-                timeoutId = setTimeout(() => {
-                    console.warn('[PaymentSuccess] Confirmation timeout after 10 seconds');
-                    setConfirmationStatus('error');
-                }, 10000);
-            } else {
-                setConfirmationStatus('error');
-            }
-        }
-
-        return () => {
-            if (timeoutId) clearTimeout(timeoutId);
-        };
-    }, [resultCode]);
-
-    const confirmPayment = async (invoiceId: string) => {
+    const confirmPayment = useCallback(async (invoiceId: string) => {
         try {
             console.log('[PaymentSuccess] Calling confirm-payment endpoint for:', invoiceId);
             const response = await fetch('/api/order/confirm-payment', {
@@ -143,7 +83,64 @@ export default function PaymentSuccessClient() {
             console.error('[PaymentSuccess] Failed to confirm payment:', error);
             setConfirmationStatus('error');
         }
-    };
+    }, [reference]);
+
+    useEffect(() => {
+        setIsHydrated(true);
+
+        if (resultCode && resultCode !== '00') {
+            console.error('[PaymentSuccess] Result code is not 00:', resultCode);
+            window.location.href =
+                '/order/payment/failed' + window.location.search;
+            return;
+        }
+
+        let timeoutId: NodeJS.Timeout;
+
+        const savedOrder = localStorage.getItem('pending-order');
+        if (savedOrder) {
+            try {
+                const parsed = JSON.parse(savedOrder);
+                setOrderData(parsed);
+
+                if (parsed.invoiceId) {
+                    console.log('[PaymentSuccess] Confirming payment for:', parsed.invoiceId);
+                    confirmPayment(parsed.invoiceId);
+
+                    timeoutId = setTimeout(() => {
+                        if (resultCode === '00') {
+                            console.warn('[PaymentSuccess] Confirmation timeout, but resultCode is 00. Forcing success.');
+                            setConfirmationStatus('confirmed');
+                        } else {
+                            console.warn('[PaymentSuccess] Confirmation timeout after 15 seconds');
+                            setConfirmationStatus('error');
+                        }
+                    }, 15000);
+                }
+            } catch (e) {
+                console.error('[PaymentSuccess] Failed to parse order data:', e);
+                setConfirmationStatus('error');
+            }
+        } else {
+            console.warn('[PaymentSuccess] No pending order in localStorage');
+            const invoiceId = searchParams.get('merchantOrderId');
+            if (invoiceId) {
+                console.log('[PaymentSuccess] Attempting to fetch order from API:', invoiceId);
+                confirmPayment(invoiceId);
+
+                timeoutId = setTimeout(() => {
+                    console.warn('[PaymentSuccess] Confirmation timeout after 10 seconds');
+                    setConfirmationStatus('error');
+                }, 10000);
+            } else {
+                setConfirmationStatus('error');
+            }
+        }
+
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+        };
+    }, [resultCode, searchParams, confirmPayment]);
 
     const handleNewOrder = () => {
         // Reset the order store to clear invoiceId and other data

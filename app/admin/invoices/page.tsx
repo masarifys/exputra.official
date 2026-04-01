@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { 
     FileText, Search, Plus, Trash2, Edit, CreditCard, 
@@ -36,15 +36,7 @@ export default function InvoicesPage() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
 
-    useEffect(() => {
-        fetchStats();
-    }, []);
-
-    useEffect(() => {
-        fetchInvoices();
-    }, [search, statusFilter]);
-
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             const res = await fetch('/api/admin/invoices?stats=true');
             if (res.ok) {
@@ -54,9 +46,9 @@ export default function InvoicesPage() {
         } catch (error) {
             console.error('Failed to fetch stats:', error);
         }
-    };
+    }, []);
 
-    const fetchInvoices = async () => {
+    const fetchInvoices = useCallback(async () => {
         try {
             setLoading(true);
             const params = new URLSearchParams();
@@ -73,7 +65,15 @@ export default function InvoicesPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [search, statusFilter]);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
+
+    useEffect(() => {
+        fetchInvoices();
+    }, [fetchInvoices]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('id-ID', {

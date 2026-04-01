@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle, X, Loader2, Users, ClipboardList, Wallet, Settings, Link2, ShieldCheck, Eye, RefreshCw } from 'lucide-react';
+import Image from 'next/image';
 
 type ActivationRequest = {
   id: string;
@@ -310,11 +311,7 @@ export default function AdminAffiliatePage() {
     setError('');
   };
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     clearFeedback();
 
@@ -355,7 +352,11 @@ export default function AdminAffiliatePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   const handleActivationAction = async (
     id: string,
@@ -1122,7 +1123,13 @@ export default function AdminAffiliatePage() {
                       <h4 className="text-sm font-semibold text-gray-900 border-b pb-1 mb-2">Dokumen KTP</h4>
                       {item.ktpImageUrl ? (
                         <div className="mt-2">
-                          <img src={item.ktpImageUrl} alt="KTP" className="w-full max-w-sm rounded-lg border border-gray-200" />
+                          <Image
+                            src={item.ktpImageUrl}
+                            alt="KTP"
+                            width={640}
+                            height={400}
+                            className="w-full max-w-sm rounded-lg border border-gray-200 h-auto"
+                          />
                           <button 
                             onClick={() => handleRunOCR(item.ktpImageUrl!)} 
                             disabled={ocrLoading}

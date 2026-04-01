@@ -112,7 +112,7 @@ export default function PaymentPage() {
     // Set expiry time to 60 minutes from now
     const expiryDate = new Date(Date.now() + 60 * 60 * 1000);
     setExpiryTime(expiryDate);
-  }, [_hasHydrated, setInvoiceId, setPersonalData]);
+  }, [_hasHydrated, setInvoiceId, setPersonalData, personalData.fullName, personalData.email, invoiceId]);
 
   // Check order status from server (detect PAID)
   useEffect(() => {
@@ -143,7 +143,7 @@ export default function PaymentPage() {
     // Poll every 3 seconds to detect payment completion (faster for user experience)
     const interval = setInterval(checkOrderStatus, 3000);
     return () => clearInterval(interval);
-  }, [invoiceId, isHydrated]);
+  }, [invoiceId, isHydrated, orderInitiated]);
 
   // Automatic redirect when PAID
   useEffect(() => {

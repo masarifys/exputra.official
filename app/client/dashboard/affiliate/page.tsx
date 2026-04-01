@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, Link2, Loader2, Wallet, Upload, ShieldCheck, CheckCircle, X } from 'lucide-react';
 
 type AffiliatePackage = {
@@ -180,37 +180,10 @@ export default function ClientAffiliatePage() {
     setError('');
   };
 
-  const fetchActivationStatus = async () => {
-    setActivationLoading(true);
-
-    try {
-      const res = await fetch('/api/client/affiliate/activation');
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Gagal memuat status aktivasi affiliate');
-      }
-
-      const typed = data as AffiliateActivationResponse;
-      setIsAffiliateActive(Boolean(typed.isActive));
-      setActivationRequest(typed.request || null);
-
-      if (typed.isActive) {
-        await fetchAffiliateData();
-      } else {
-        setLoading(false);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Terjadi kesalahan saat memuat status aktivasi');
-      setLoading(false);
-    } finally {
-      setActivationLoading(false);
-    }
-  };
-
-  const fetchAffiliateData = async () => {
+  const fetchAffiliateData = useCallback(async () => {
     setLoading(true);
-    resetFeedback();
+    setMessage('');
+    setError('');
 
     try {
       const res = await fetch('/api/client/affiliate/links');
@@ -249,11 +222,39 @@ export default function ClientAffiliatePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const fetchActivationStatus = useCallback(async () => {
+    setActivationLoading(true);
+
+    try {
+      const res = await fetch('/api/client/affiliate/activation');
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Gagal memuat status aktivasi affiliate');
+      }
+
+      const typed = data as AffiliateActivationResponse;
+      setIsAffiliateActive(Boolean(typed.isActive));
+      setActivationRequest(typed.request || null);
+
+      if (typed.isActive) {
+        await fetchAffiliateData();
+      } else {
+        setLoading(false);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Terjadi kesalahan saat memuat status aktivasi');
+      setLoading(false);
+    } finally {
+      setActivationLoading(false);
+    }
+  }, [fetchAffiliateData]);
 
   useEffect(() => {
     fetchActivationStatus();
-  }, []);
+  }, [fetchActivationStatus]);
 
   const handleRequestActivation = async () => {
     resetFeedback();

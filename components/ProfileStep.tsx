@@ -41,7 +41,7 @@ export default function ProfileStep() {
         setIsLoggedIn(false);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [setCurrentStep, setPersonalData]);
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

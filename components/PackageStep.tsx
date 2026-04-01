@@ -73,6 +73,22 @@ export default function PackageStep() {
     fetchData();
   }, [fetchData]);
 
+  const handlePackageSelect = useCallback((pkg: PackageFromDB) => {
+    const priceForDuration =
+      selectedDuration === 1 ? (pkg.price1Year || pkg.price) :
+      selectedDuration === 2 ? (pkg.price2Year || pkg.price * 2) :
+      (pkg.price3Year || pkg.price * 3);
+
+    setSelectedPackage({
+      id: pkg.id,
+      name: pkg.name,
+      duration: selectedDuration,
+      price: priceForDuration,
+      isPopular: pkg.isPopular,
+      freeDomains: pkg.freeDomains,
+    });
+  }, [selectedDuration, setSelectedPackage]);
+
   useEffect(() => {
     if (loading || packages.length === 0 || selectedPackage) return;
 
@@ -83,7 +99,7 @@ export default function PackageStep() {
     if (promotedPackage) {
       handlePackageSelect(promotedPackage);
     }
-  }, [loading, packages, selectedPackage]);
+  }, [loading, packages, selectedPackage, handlePackageSelect]);
 
   // Sync selected add-ons with available add-ons
   // This handles the case where a user selected an add-on that is no longer available/active
@@ -99,7 +115,7 @@ export default function PackageStep() {
         });
       }
     }
-  }, [loading, addOns, selectedAddOns.length, toggleAddOn]); // depend on length to avoid infinite loop with object ref changes if any
+  }, [loading, addOns, selectedAddOns, toggleAddOn]);
   const promoCode = useOrderStore((state) => state.promoCode);
   const setPromoCode = useOrderStore((state) => state.setPromoCode);
   const getTotalPrice = useOrderStore((state) => state.getTotalPrice);
@@ -118,22 +134,6 @@ export default function PackageStep() {
       })
       .catch(() => { _pkgIsLoggedInCache = false; });
   }, []);
-
-  const handlePackageSelect = (pkg: PackageFromDB) => {
-    const priceForDuration = 
-      selectedDuration === 1 ? (pkg.price1Year || pkg.price) :
-      selectedDuration === 2 ? (pkg.price2Year || pkg.price * 2) :
-      (pkg.price3Year || pkg.price * 3);
-
-    setSelectedPackage({
-      id: pkg.id,
-      name: pkg.name,
-      duration: selectedDuration,
-      price: priceForDuration,
-      isPopular: pkg.isPopular,
-      freeDomains: pkg.freeDomains,
-    });
-  };
 
   const handleApplyPromo = async () => {
     if (!promoInput.trim()) return;

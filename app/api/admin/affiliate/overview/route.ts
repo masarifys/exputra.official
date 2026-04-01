@@ -13,6 +13,40 @@ type AffiliateSettingRow = {
   syncedPackageIds: string | null;
 };
 
+type AffiliateServiceLinkRow = {
+  id: string;
+  code: string;
+  servicePackageId: string;
+  customerId: string;
+  isActive: boolean;
+  clicks: number;
+  conversions: number;
+  createdAt: Date;
+  customer: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    status: 'ACTIVE' | 'INACTIVE';
+  };
+  servicePackage: {
+    id: string;
+    name: string;
+    service: {
+      id: string;
+      name: string;
+    };
+  };
+  serviceOrders: Array<{
+    id: string;
+    invoiceId: string;
+    total: number;
+    status: string;
+    createdAt: Date;
+    paidAt: Date | null;
+  }>;
+};
+
 function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -44,7 +78,7 @@ export async function GET() {
     const rules = setting?.rules || 'Affiliate wajib menggunakan rekening atas nama sendiri dan dilarang melakukan fraud traffic.';
     const parsedConfig = parseAffiliateSyncConfig(setting?.syncedPackageIds ?? null);
 
-    const [links, serviceLinks, visits, payouts, bankAccounts, packages] = await Promise.all([
+    const [links, rawServiceLinks, visits, payouts, bankAccounts, packages] = await Promise.all([
       prisma.affiliateLink.findMany({
         include: {
           customer: {
@@ -170,6 +204,8 @@ export async function GET() {
         orderBy: [{ isPopular: 'desc' }, { name: 'asc' }],
       }),
     ]);
+
+    const serviceLinks = rawServiceLinks as AffiliateServiceLinkRow[];
 
     const usersMap = new Map<string, {
       id: string;

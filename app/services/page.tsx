@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Button from '@/components/Button';
 import ServicesStepper from '@/components/ServicesStepper';
@@ -48,7 +48,7 @@ const getPackageSortRank = (code?: string) => {
 
 const isExtensionCode = (code?: string) => Boolean(code && code.toUpperCase().startsWith('EXT_'));
 
-export default function ServicesPage() {
+function ServicesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -104,11 +104,11 @@ export default function ServicesPage() {
           _svcIsLoggedInCache = true;
           setIsLoggedIn(true);
           setPersonalData({
+            ...personalData,
             fullName: data.name,
             email: data.email,
             phone: data.phone,
             company: data.company || '',
-            notes: personalData.notes,
           });
           // If currently on step 3, skip to payment flow
           if (currentStep === 3) {
@@ -117,7 +117,7 @@ export default function ServicesPage() {
         }
       })
       .catch(() => { _svcIsLoggedInCache = false; });
-  }, []);
+  }, [currentStep, setCurrentStep, setPersonalData, personalData]);
 
   useEffect(() => {
     const affiliateCode = String(searchParams.get('aff') || '').trim();
@@ -180,7 +180,7 @@ export default function ServicesPage() {
     };
 
     fetchServices();
-  }, [searchParams, setSelectedPackage, setSelectedService]);
+  }, [searchParams, selectedService, setSelectedPackage, setSelectedService]);
 
   useEffect(() => {
     if (!selectedService) return;
@@ -192,7 +192,7 @@ export default function ServicesPage() {
     if (!stillValid && options.length > 0) {
       setSelectedPackage(options[0]);
     }
-  }, [selectedService?.id]);
+  }, [selectedPackage?.id, selectedService, setSelectedPackage]);
 
   const canContinueStep1 = Boolean(selectedService);
   const canContinueStep2 = Boolean(selectedPackage);
@@ -489,5 +489,13 @@ export default function ServicesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ServicesPage() {
+  return (
+    <Suspense fallback={<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-sm text-gray-500">Memuat halaman layanan...</div>}>
+      <ServicesPageContent />
+    </Suspense>
   );
 }

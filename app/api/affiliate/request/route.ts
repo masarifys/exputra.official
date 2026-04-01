@@ -5,7 +5,7 @@ import { resolveClientSessionCustomer } from '@/lib/client-session';
 export async function POST(request: NextRequest) {
   try {
     const session = await resolveClientSessionCustomer();
-    if (!session?.email) {
+    if (!session?.customerId || !session.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -14,11 +14,14 @@ export async function POST(request: NextRequest) {
     // Verify order exists and is paid
     const order = await prisma.order.findUnique({
       where: { invoiceId },
-      select: { status: true, customerId: true }
+      select: { status: true, customerEmail: true }
     });
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     if (order.status !== 'PAID') {
       return NextResponse.json({ error: 'Invoice belum dibayar' }, { status: 400 });
+    }
+    if (order.customerEmail.toLowerCase() !== session.email.toLowerCase()) {
+      return NextResponse.json({ error: 'Invoice tidak sesuai akun Anda' }, { status: 403 });
     }
 
     // Generate unique affiliate code
@@ -27,7 +30,7 @@ export async function POST(request: NextRequest) {
     await prisma.affiliateRequest.create({
       data: {
         affiliateCode,
-        customerId: order.customerId,
+        customerId: session.customerId,
         status: 'PENDING'
       }
     });
