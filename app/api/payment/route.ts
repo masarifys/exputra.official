@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
+import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
+import { sendWhatsAppMessage } from '@/lib/fonnte';
+
+const prismaAny = prisma as any;
 
 const DUITKU_API_URL = process.env.DUITKU_BASE_URL ? `${process.env.DUITKU_BASE_URL}/api/merchant/v2/inquiry` : 'https://passport.duitku.com/webapi/api/merchant/v2/inquiry';
 const MERCHANT_CODE = process.env.DUITKU_MERCHANT_CODE || 'D9808';
 const API_KEY = process.env.DUITKU_API_KEY || '9329b1b8af27f2d3f9330075391fc250';
+const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,8 +23,14 @@ export async function POST(request: NextRequest) {
       customerPhone,
       productDetails,
       paymentMethod,
-      orderData
+      orderData,
+      returnUrl,
     } = body;
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const resolvedReturnUrl = typeof returnUrl === 'string' && returnUrl.trim().length > 0
+      ? returnUrl
+      : `${baseUrl}/order/payment/success`;
 
     const signature = createHash('md5')
       .update(MERCHANT_CODE + orderId + amount + API_KEY)
@@ -47,8 +58,8 @@ export async function POST(request: NextRequest) {
         email: customerEmail,
         phoneNumber: customerPhone
       },
-      callbackUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/payment/callback`,
-      returnUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/order/payment/success`,
+      callbackUrl: `${baseUrl}/api/payment/callback`,
+      returnUrl: resolvedReturnUrl,
       signature: signature,
       expiryPeriod: 60
     };
@@ -98,9 +109,24 @@ export async function POST(request: NextRequest) {
     if (data.statusCode === '00' || data.paymentUrl) {
       // Save order to database
       console.log('Order Data received:', orderData);
+      const isServiceFlow = Boolean(orderData?.serviceFlow);
+      const serviceOrderPayload = orderData?.serviceOrder;
 
       if (orderData && orderData.domainId && orderData.templateId && orderData.packageId) {
         try {
+          let affiliateLinkId: string | null = null;
+
+          if (orderData.affiliateCode) {
+            const affiliateLink = await prisma.affiliateLink.findUnique({
+              where: { code: orderData.affiliateCode },
+              select: { id: true, isActive: true },
+            });
+
+            if (affiliateLink?.isActive) {
+              affiliateLinkId = affiliateLink.id;
+            }
+          }
+
           // Check if order already exists
           const existingOrder = await prisma.order.findUnique({
             where: { invoiceId: orderId }
@@ -122,6 +148,7 @@ export async function POST(request: NextRequest) {
                 subtotal: orderData.subtotal,
                 discount: orderData.discount || 0,
                 total: amount,
+                affiliateLinkId,
                 paymentMethod: paymentMethod,
                 paymentRef: data.reference,
                 status: 'PENDING',
@@ -129,16 +156,70 @@ export async function POST(request: NextRequest) {
                   create: orderData.services.map((service: { id: string; price: number }) => ({
                     serviceId: service.id,
                     price: service.price,
-                  })),
+                   })),
                 } : undefined,
               },
             });
             console.log('New order saved:', orderId);
+
+            // Auto-login / Session handling for Website Order
+            try {
+              const normalizedEmail = String(customerEmail || '').trim().toLowerCase();
+              const normalizedName = String(customerName || '').trim();
+              const normalizedPhone = String(customerPhone || '').trim();
+
+              if (normalizedEmail && normalizedName && normalizedPhone) {
+                let customer = await prisma.customer.findUnique({
+                  where: { email: normalizedEmail },
+                });
+
+                if (customer) {
+                  customer = await prisma.customer.update({
+                    where: { id: customer.id },
+                    data: {
+                      name: normalizedName,
+                      phone: normalizedPhone,
+                    },
+                  });
+                } else {
+                  customer = await prisma.customer.create({
+                    data: {
+                      email: normalizedEmail,
+                      phone: normalizedPhone,
+                      name: normalizedName,
+                    },
+                  });
+                }
+
+                const cookieStore = await cookies();
+                cookieStore.set(
+                  'client_session',
+                  JSON.stringify({
+                    customerId: customer.id,
+                    email: customer.email,
+                    name: customer.name,
+                  }),
+                  {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                    maxAge: SESSION_MAX_AGE,
+                  }
+                );
+              }
+            } catch (sessionError) {
+              console.error('Failed to set session for website order:', sessionError);
+            }
+            
+            // Send WA Notification
+            const waMsg = `Halo ${customerName},\n\nTerima kasih telah memesan website di Exputra!\nNo Invoice: ${orderId}\nTotal Tagihan: Rp${amount.toLocaleString('id-ID')}\n\nPeriksa status pembayaran Anda dan lakukan pelunasan. Terima kasih!`;
+            await sendWhatsAppMessage(customerPhone, waMsg);
           } else {
             console.log('Order already exists, updating payment ref:', orderId);
             await prisma.order.update({
               where: { invoiceId: orderId },
               data: {
+                affiliateLinkId: affiliateLinkId || existingOrder.affiliateLinkId,
                 paymentMethod: paymentMethod,
                 paymentRef: data.reference,
               }
@@ -147,7 +228,122 @@ export async function POST(request: NextRequest) {
         } catch (dbError) {
           console.error('Failed to save/update order:', dbError);
         }
-      } else {
+      } else if (isServiceFlow && serviceOrderPayload?.serviceId) {
+        try {
+          let affiliateServiceLinkId: string | null = null;
+
+          if (orderData?.affiliateCode) {
+            const serviceAffiliateLink = await prismaAny.affiliateServiceLink.findUnique({
+              where: { code: orderData.affiliateCode },
+              select: {
+                id: true,
+                isActive: true,
+                servicePackageId: true,
+              },
+            });
+
+            if (
+              serviceAffiliateLink?.isActive &&
+              serviceOrderPayload?.servicePackageId &&
+              serviceAffiliateLink.servicePackageId === serviceOrderPayload.servicePackageId
+            ) {
+              affiliateServiceLinkId = serviceAffiliateLink.id;
+            }
+          }
+
+          const normalizedEmail = String(customerEmail || '').trim().toLowerCase();
+          const normalizedName = String(customerName || '').trim();
+          const normalizedPhone = String(customerPhone || '').trim();
+
+          if (normalizedEmail && normalizedName && normalizedPhone) {
+            let customer = await prisma.customer.findUnique({
+              where: { email: normalizedEmail },
+              select: { id: true, email: true, name: true, phone: true, company: true },
+            });
+
+            if (customer) {
+              customer = await prisma.customer.update({
+                where: { id: customer.id },
+                data: {
+                  name: normalizedName,
+                  phone: normalizedPhone,
+                  company: serviceOrderPayload.company || customer.company || null,
+                },
+                select: { id: true, email: true, name: true, phone: true, company: true },
+              });
+            } else {
+              customer = await prisma.customer.create({
+                data: {
+                  email: normalizedEmail,
+                  phone: normalizedPhone,
+                  name: normalizedName,
+                  company: serviceOrderPayload.company || null,
+                },
+                select: { id: true, email: true, name: true, phone: true, company: true },
+              });
+            }
+
+            const cookieStore = await cookies();
+            cookieStore.set(
+              'client_session',
+              JSON.stringify({
+                customerId: customer.id,
+                email: customer.email,
+                name: customer.name,
+              }),
+              {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: SESSION_MAX_AGE,
+              }
+            );
+          }
+
+          const existingServiceOrder = await prismaAny.serviceOrder.findUnique({
+            where: { invoiceId: orderId },
+          });
+
+          const serviceOrderData = {
+            serviceId: serviceOrderPayload.serviceId,
+            servicePackageId: serviceOrderPayload.servicePackageId || null,
+            packageName: serviceOrderPayload.packageName || 'Paket Layanan',
+            packageMultiplier: Number(serviceOrderPayload.packageMultiplier || 1),
+            packageDescription: serviceOrderPayload.packageDescription || null,
+            etaLabel: serviceOrderPayload.etaLabel || null,
+            customerName,
+            customerEmail,
+            customerPhone,
+            company: serviceOrderPayload.company || null,
+            notes: serviceOrderPayload.notes || null,
+            subtotal: Number(serviceOrderPayload.subtotal || amount),
+            total: amount,
+            affiliateServiceLinkId,
+            paymentMethod,
+            paymentRef: data.reference || null,
+          };
+
+          if (existingServiceOrder) {
+            await prismaAny.serviceOrder.update({
+              where: { invoiceId: orderId },
+              data: serviceOrderData,
+            });
+          } else {
+            await prismaAny.serviceOrder.create({
+              data: {
+                invoiceId: orderId,
+                ...serviceOrderData,
+              },
+            });
+            
+            // Send WA Notification for Service Order
+            const waMsg = `Halo ${customerName},\n\nTerima kasih telah memesan layanan ${serviceOrderData.packageName} di Exputra!\nNo Invoice: ${orderId}\nTotal Tagihan: Rp${amount.toLocaleString('id-ID')}\n\nSilakan selesaikan pembayaran Anda.`;
+            await sendWhatsAppMessage(customerPhone, waMsg);
+          }
+        } catch (serviceOrderError) {
+          console.error('Failed to save service order:', serviceOrderError);
+        }
+      } else if (!isServiceFlow) {
         console.error('Missing required order data:', {
           hasOrderData: !!orderData,
           domainId: orderData?.domainId,
@@ -168,9 +364,35 @@ export async function POST(request: NextRequest) {
         }
       });
     } else {
+      const errorMessage = data.statusMessage || data.Message || 'Payment creation failed';
+
+      // Localhost / Webhook failure gracefully handle: Duitku says "Bill already paid"
+      if (errorMessage.includes('Bill already paid')) {
+        console.log(`[Auto-Sync] Duitku indicates ${orderId} is paid. Syncing DB...`);
+        try {
+          // Sync Order
+          await prisma.order.updateMany({
+            where: { invoiceId: orderId, status: { not: 'PAID' } },
+            data: { status: 'PAID', paidAt: new Date(), paymentMethod }
+          });
+          // Sync Service Order
+          await prismaAny.serviceOrder.updateMany({
+            where: { invoiceId: orderId, status: { not: 'PAID' } },
+            data: { status: 'PAID', paidAt: new Date(), paymentMethod }
+          });
+          // Sync Admin Invoice
+          await prisma.invoice.updateMany({
+            where: { invoiceNumber: orderId, status: { not: 'PAID' } },
+            data: { status: 'PAID', amountPaid: amount }
+          });
+        } catch (syncError) {
+          console.error('[Auto-Sync] Failed to sync paid status:', syncError);
+        }
+      }
+
       return NextResponse.json({
         success: false,
-        error: data.statusMessage || data.Message || 'Payment creation failed',
+        error: errorMessage,
         details: data
       }, { status: 400 });
     }

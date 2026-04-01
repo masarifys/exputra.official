@@ -60,6 +60,11 @@ export interface OrderState {
   selectedPackage: Package | null;
   selectedAddOns: AddOn[];
   promoCode: PromoCode | null;
+  invoiceId: string;
+  _hasHydrated: boolean;
+  orderInitiated: boolean;
+  setHasHydrated: (state: boolean) => void;
+  setOrderInitiated: (val: boolean) => void;
   setCurrentStep: (step: number) => void;
   setDomainSearch: (search: string) => void;
   setSelectedDomain: (domain: Domain | null) => void;
@@ -68,6 +73,7 @@ export interface OrderState {
   setSelectedPackage: (pkg: Package | null) => void;
   toggleAddOn: (addon: AddOn) => void;
   setPromoCode: (promo: PromoCode | null) => void;
+  setInvoiceId: (id: string) => void;
   getTotalPrice: () => number;
   reset: () => void;
 }

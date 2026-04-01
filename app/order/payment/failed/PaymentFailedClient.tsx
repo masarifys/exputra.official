@@ -10,6 +10,11 @@ export default function PaymentFailedClient() {
         searchParams.get('message') ||
         'Pembayaran gagal atau dibatalkan. Silakan coba kembali.';
 
+    const merchantOrderId = searchParams.get('merchantOrderId');
+    const retryHref = merchantOrderId 
+        ? `/client/dashboard/payment/${merchantOrderId}` 
+        : `/order`;
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-red-50 px-4">
             <div className="bg-white rounded-xl shadow-lg p-6 max-w-md text-center">
@@ -28,7 +33,7 @@ export default function PaymentFailedClient() {
                     </Link>
 
                     <Link
-                        href="/order"
+                        href={retryHref}
                         className="flex-1 bg-red-500 text-white py-2 rounded-lg font-bold hover:bg-red-600 transition-colors"
                     >
                         Coba Lagi

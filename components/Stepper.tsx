@@ -1,8 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useOrderStore } from '@/store/useOrderStore';
 
-const steps = [
+const allSteps = [
   { id: 1, name: 'Pilih Domain', description: 'Pemilihan nama domain dapat menggunakan kata unik langsung yang berkaitan dengan bisnis kamu.' },
   { id: 2, name: 'Pilih Template', description: 'Pilih design website dengan mencoba dan brand identitas usaha kamu dengan design yang tersedia.' },
   { id: 3, name: 'Data Diri', description: 'Lengkapi data diri kamu, sehingga kami dapat menghubungi kamu.' },
@@ -11,6 +12,19 @@ const steps = [
 
 export default function Stepper() {
   const currentStep = useOrderStore((state) => state.currentStep);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/client/profile')
+      .then((res) => {
+        if (res.ok) {
+          setIsLoggedIn(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const steps = isLoggedIn ? allSteps.filter((s) => s.id !== 3) : allSteps;
 
   return (
     <>
@@ -36,7 +50,7 @@ export default function Stepper() {
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   ) : (
-                    step.id
+                    isLoggedIn ? (step.id === 4 ? 3 : step.id) : step.id
                   )}
                 </div>
                 <div className="ml-4">
@@ -75,7 +89,7 @@ export default function Stepper() {
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   ) : (
-                    step.id
+                    isLoggedIn ? (step.id === 4 ? 3 : step.id) : step.id
                   )}
                 </div>
                 {index !== steps.length - 1 && (

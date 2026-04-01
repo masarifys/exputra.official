@@ -12,6 +12,7 @@ interface PaymentLog {
   customerEmail: string;
   message: string;
   timestamp: string;
+  source: 'WEBSITE' | 'SERVICE' | 'MANUAL';
   details?: any;
 }
 
@@ -23,10 +24,15 @@ export default function PaymentLogsPage() {
 
   useEffect(() => {
     fetchLogs();
+
+    // Auto-refresh every 30 seconds to keep logs in sync
+    const interval = setInterval(fetchLogs, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchLogs = async () => {
-    setLoading(true);
+    // Only show loading on initial fetch to avoid UI flicker during auto-refresh
+    if (logs.length === 0) setLoading(true);
     try {
       const response = await fetch('/api/admin/payment-logs');
       const data = await response.json();
@@ -147,13 +153,14 @@ export default function PaymentLogsPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Invoice ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Message</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Reference</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Invoice ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Source</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Message</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Ref</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -164,7 +171,15 @@ export default function PaymentLogsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm font-mono text-gray-900">{log.invoiceId}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{log.customerEmail}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                    <td className="px-6 py-4 text-sm whitespace-nowrap">
+                      <span className={`px-2 py-1 text-[10px] rounded font-bold uppercase tracking-wider 
+                        ${log.source === 'WEBSITE' ? 'bg-blue-100 text-blue-700' : 
+                          log.source === 'SERVICE' ? 'bg-purple-100 text-purple-700' : 
+                          'bg-emerald-100 text-emerald-700'}`}>
+                        {log.source}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">
                       Rp {log.amount.toLocaleString('id-ID')}
                     </td>
                     <td className="px-6 py-4 text-sm">

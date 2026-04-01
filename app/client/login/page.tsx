@@ -1,15 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function ClientLoginPage() {
+function ClientLoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('service-last-order');
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as {
+        customerEmail?: string;
+        customerPhone?: string;
+      };
+
+      if (!email && parsed.customerEmail) {
+        setEmail(parsed.customerEmail);
+      }
+
+      if (!phone && parsed.customerPhone) {
+        setPhone(parsed.customerPhone);
+      }
+    } catch {
+      // Ignore malformed local storage payload
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,7 +41,8 @@ export default function ClientLoginPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/client/login', {
+      const nextPath = searchParams.get('next') || '/client/dashboard';
+      const res = await fetch(`/api/client/login?next=${encodeURIComponent(nextPath)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, phone }),
@@ -26,7 +51,10 @@ export default function ClientLoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        router.push('/client/dashboard');
+        const destination = typeof data.nextPath === 'string' && data.nextPath.startsWith('/client/')
+          ? data.nextPath
+          : '/client/dashboard';
+        router.push(destination);
       } else {
         setError(data.message || 'Login gagal');
       }
@@ -63,19 +91,27 @@ export default function ClientLoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nomor HP (Password)
-            </label>
+            <div className="flex items-center justify-between mb-1 px-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Nomor HP atau Password
+              </label>
+              <Link 
+                href="/client/forgot-password"
+                className="text-xs font-semibold text-cyan-600 hover:text-cyan-700"
+              >
+                Lupa Password?
+              </Link>
+            </div>
             <input
               type="text"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
-              placeholder="08123456789"
+              placeholder="08123456789 atau password baru"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Gunakan nomor HP yang sama saat melakukan pemesanan
+              Gunakan nomor HP (default) atau password yang telah Anda buat
             </p>
           </div>
 
@@ -101,5 +137,13 @@ export default function ClientLoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ClientLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <ClientLoginPageInner />
+    </Suspense>
   );
 }

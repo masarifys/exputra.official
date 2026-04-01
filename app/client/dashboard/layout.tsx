@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { LayoutDashboard, Package, Globe, Server, FileText, User, LogOut, Menu, X, Home, Wrench } from 'lucide-react';
+import { useState, useEffect, Fragment } from 'react';
+import { LayoutDashboard, Package, Globe, Server, FileText, User, LogOut, Menu, X, Home, Wrench, Megaphone, MessageCircle } from 'lucide-react';
+import { Menu as HeadlessMenu, Transition } from '@headlessui/react';
 
 const menuItems = [
     { href: '/client/dashboard', label: 'Dashboard', iconName: 'dashboard' },
@@ -11,8 +12,8 @@ const menuItems = [
     { href: '/client/dashboard/domains', label: 'My Domains', iconName: 'globe' },
     { href: '/client/dashboard/servers', label: 'My Servers', iconName: 'server' },
     { href: '/client/dashboard/services', label: 'My Services', iconName: 'wrench' },
+    { href: '/client/dashboard/affiliate', label: 'Affiliate', iconName: 'affiliate' },
     { href: '/client/dashboard/invoices', label: 'My Invoices', iconName: 'filetext' },
-    { href: '/client/dashboard/profile', label: 'My Profile', iconName: 'user' },
 ];
 
 const IconComponent = ({ name, className }: { name: string; className: string }) => {
@@ -27,6 +28,8 @@ const IconComponent = ({ name, className }: { name: string; className: string })
             return <Server className={className} />;
         case 'wrench':
             return <Wrench className={className} />;
+        case 'affiliate':
+            return <Megaphone className={className} />;
         case 'filetext':
             return <FileText className={className} />;
         case 'user':
@@ -35,6 +38,98 @@ const IconComponent = ({ name, className }: { name: string; className: string })
             return null;
     }
 };
+
+function UserAccountMenu({ clientName, adminWhatsapp, onLogout }: { clientName: string; adminWhatsapp: string; onLogout: () => void }) {
+    const initials = clientName ? clientName[0].toUpperCase() : 'C';
+
+    // Format WhatsApp value for wa.me link
+    let waPhone = adminWhatsapp || '';
+    if (waPhone) {
+        waPhone = waPhone.replace(/[^0-9]/g, '');
+        if (waPhone.startsWith('0')) {
+            waPhone = '62' + waPhone.slice(1);
+        } else if (!waPhone.startsWith('62')) {
+            waPhone = '62' + waPhone;
+        }
+    }
+
+    const whatsappUrl = waPhone ? `https://wa.me/${waPhone}` : '#';
+
+    return (
+        <HeadlessMenu as="div" className="relative">
+            <HeadlessMenu.Button className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-sm border-2 border-white">
+                    {initials}
+                </div>
+            </HeadlessMenu.Button>
+
+            <Transition
+                as={Fragment}
+                enter="transition ease-out duration-100"
+                enterFrom="transform opacity-0 scale-95"
+                enterTo="transform opacity-100 scale-100"
+                leave="transition ease-in duration-75"
+                leaveFrom="transform opacity-100 scale-100"
+                leaveTo="transform opacity-0 scale-95"
+            >
+                <HeadlessMenu.Items className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl bg-white shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none z-[100]">
+                    {/* The "notch" arrow */}
+                    <div className="absolute -top-1.5 right-4 w-3 h-3 bg-white rotate-45 border-t border-l border-gray-100"></div>
+                    
+                    <div className="py-2">
+                        <div className="px-4 py-3 border-b border-gray-100 mb-1">
+                            <p className="text-sm font-bold text-gray-900 truncate">{clientName || 'Client'}</p>
+                            <p className="text-[10px] text-green-600 font-bold uppercase tracking-wider mt-px flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                Active Account
+                            </p>
+                        </div>
+
+                        <HeadlessMenu.Item>
+                            {({ active }) => (
+                                <Link
+                                    href="/client/dashboard/profile"
+                                    className={`${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700'} flex items-center gap-3 px-4 py-3 text-sm transition-colors font-medium`}
+                                >
+                                    <User className={`w-4 h-4 ${active ? 'text-blue-600' : 'text-gray-400'}`} />
+                                    Profile & account
+                                </Link>
+                            )}
+                        </HeadlessMenu.Item>
+
+                        <HeadlessMenu.Item>
+                            {({ active }) => (
+                                <a
+                                    href={whatsappUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={`${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700'} flex items-center gap-3 px-4 py-3 text-sm transition-colors font-medium`}
+                                >
+                                    <MessageCircle className={`w-4 h-4 ${active ? 'text-blue-600' : 'text-gray-400'}`} />
+                                    Hubungi Admin
+                                </a>
+                            )}
+                        </HeadlessMenu.Item>
+
+                        <div className="px-2 pt-2 border-t border-gray-100 mt-1">
+                            <HeadlessMenu.Item>
+                                {({ active }) => (
+                                    <button
+                                        onClick={onLogout}
+                                        className={`${active ? 'bg-red-50 text-red-700' : 'text-gray-700'} flex w-full items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors font-bold`}
+                                    >
+                                        <LogOut className={`w-4 h-4 ${active ? 'text-red-600' : 'text-gray-400'}`} />
+                                        Logout
+                                    </button>
+                                )}
+                            </HeadlessMenu.Item>
+                        </div>
+                    </div>
+                </HeadlessMenu.Items>
+            </Transition>
+        </HeadlessMenu>
+    );
+}
 
 export default function ClientDashboardLayout({
     children,
@@ -45,14 +140,14 @@ export default function ClientDashboardLayout({
     const router = useRouter();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [clientName, setClientName] = useState('');
+    const [adminWhatsapp, setAdminWhatsapp] = useState('');
 
     useEffect(() => {
-        // Basic check for session/name from cookies or session storage if needed
-        // For now, we'll try to get it from our profile API or just wait for children to load
         fetch('/api/client/profile')
             .then(res => res.json())
             .then(data => {
                 if (data.name) setClientName(data.name);
+                if (data.adminWhatsapp) setAdminWhatsapp(data.adminWhatsapp);
             })
             .catch(() => { });
     }, []);
@@ -63,7 +158,7 @@ export default function ClientDashboardLayout({
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen bg-gray-50 flex print:bg-white">
             {/* Mobile sidebar backdrop */}
             {sidebarOpen && (
                 <div
@@ -73,17 +168,17 @@ export default function ClientDashboardLayout({
             )}
 
             {/* Sidebar - Desktop & Mobile */}
-            <aside className={`fixed inset-y-0 left-0 bg-gradient-to-b from-blue-600 to-blue-700 w-64 transform transition-transform duration-300 ease-in-out z-50 lg:translate-x-0 lg:static lg:block shadow-xl ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <aside className={`fixed inset-y-0 left-0 bg-gradient-to-b from-blue-600 to-blue-700 w-64 transform transition-transform duration-300 ease-in-out z-50 lg:translate-x-0 lg:static lg:block shadow-xl print:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="h-full flex flex-col">
                     {/* Logo/Brand Section */}
-                    <div className="p-6 border-b border-blue-500 border-opacity-20">
-                        <div className="flex items-center gap-3 mb-1">
+                    <div className="p-6 border-b border-blue-500 border-opacity-20 flex-shrink-0">
+                        <div className="flex items-center gap-3">
                             <div className="p-2 bg-blue-500 bg-opacity-30 rounded-lg">
                                 <Home className="w-5 h-5 text-white" />
                             </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-white">Client Area</h2>
-                                <p className="text-xs text-blue-100 uppercase tracking-widest font-semibold">Website Management</p>
+                            <div className="overflow-hidden">
+                                <h2 className="text-lg font-bold text-white truncate">Client Area</h2>
+                                <p className="text-[10px] text-blue-100 uppercase tracking-widest font-bold opacity-75 truncate">Website Management</p>
                             </div>
                         </div>
                     </div>
@@ -96,8 +191,8 @@ export default function ClientDashboardLayout({
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${isActive
-                                        ? 'bg-white bg-opacity-20 text-white shadow-md'
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+                                        ? 'bg-white bg-opacity-20 text-white shadow-lg'
                                         : 'text-blue-100 hover:bg-white hover:bg-opacity-10 hover:text-white'
                                         }`}
                                     onClick={() => setSidebarOpen(false)}
@@ -106,56 +201,42 @@ export default function ClientDashboardLayout({
                                         name={item.iconName}
                                         className={`w-5 h-5 shrink-0 transition-transform ${isActive ? 'text-white' : 'text-blue-200 group-hover:text-white'}`}
                                     />
-                                    <span className="font-medium text-sm">{item.label}</span>
-                                    {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white"></div>}
+                                    <span className={`font-semibold text-sm ${isActive ? 'opacity-100' : 'opacity-90'}`}>{item.label}</span>
+                                    {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white shadow-sm shadow-white"></div>}
                                 </Link>
                             );
                         })}
                     </nav>
-
-                    {/* Footer / User Info */}
-                    <div className="p-4 border-t border-blue-500 border-opacity-20 space-y-3">
-                        <div className="bg-white bg-opacity-10 rounded-lg p-3 backdrop-blur-sm">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-300 to-blue-500 flex items-center justify-center text-white font-bold shrink-0 shadow-md">
-                                    {clientName ? clientName[0].toUpperCase() : 'C'}
-                                </div>
-                                <div className="overflow-hidden flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white truncate">{clientName || 'Client'}</p>
-                                    <div className="flex items-center gap-1.5 mt-1">
-                                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shrink-0"></span>
-                                        <p className="text-xs text-green-200 font-semibold">Active</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-blue-100 hover:bg-red-600 hover:text-white rounded-lg transition-all duration-200 font-medium text-sm hover:shadow-md"
-                        >
-                            <LogOut className="w-5 h-5" />
-                            <span>Sign Out</span>
-                        </button>
-                    </div>
                 </div>
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col min-w-0">
-                {/* Top Navbar - Mobile Only */}
-                <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white lg:hidden px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
-                    <div className="flex items-center gap-3">
-                        <Home className="w-5 h-5" />
-                        <h2 className="font-bold">Client Dashboard</h2>
+            <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+                {/* Unified Header - Fixed */}
+                <header className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shrink-0 print:hidden shadow-sm">
+                    <div className="flex items-center gap-3 lg:hidden">
+                         <button 
+                            onClick={() => setSidebarOpen(true)} 
+                            className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
+                         >
+                            <Menu className="w-6 h-6" />
+                        </button>
+                        <h2 className="font-bold text-gray-900 text-sm">Dashboard</h2>
                     </div>
-                    <button onClick={() => setSidebarOpen(true)} className="p-2 -mr-2 text-white hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors">
-                        {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                    </button>
+
+                    <div className="hidden lg:block">
+                         {/* Optional breadcrumb or search bar could go here */}
+                         &nbsp;
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <UserAccountMenu clientName={clientName} adminWhatsapp={adminWhatsapp} onLogout={handleLogout} />
+                    </div>
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 custom-scrollbar">
-                    <div className="max-w-6xl mx-auto">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 custom-scrollbar print:p-0 print:overflow-visible bg-gray-50/50">
+                    <div className="max-w-6xl mx-auto pb-12">
                         {children}
                     </div>
                 </main>

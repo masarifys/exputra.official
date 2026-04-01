@@ -8,22 +8,22 @@ datasource db {
 }
 
 model User {
-  id                  String   @id @default(cuid())
-  email               String   @unique
-  password            String
-  name                String
-  role                Role     @default(USER)
-  resetToken          String?  @unique
-  resetTokenExpiry    DateTime?
-  googleClientId      String?
-  googleClientSecret  String?
-  googleAccessToken   String?
-  googleRefreshToken  String?
-  googleExpiresAt     DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  orders              Order[]
-  customers           Customer[]
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  password           String
+  name               String
+  role               Role       @default(USER)
+  resetToken         String?    @unique
+  resetTokenExpiry   DateTime?
+  googleClientId     String?
+  googleClientSecret String?
+  googleAccessToken  String?
+  googleRefreshToken String?
+  googleExpiresAt    DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  orders             Order[]
+  customers          Customer[]
 
   @@map("user")
 }
@@ -54,58 +54,92 @@ enum DomainLabel {
 }
 
 model Template {
-  id          String   @id @default(cuid())
-  name        String
-  thumbnail   String?
-  previewUrl  String?
-  category    String
-  price       Int      @default(0)
-  isPaid      Boolean  @default(false)
-  description String?  @db.Text
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  orders      Order[]
+  id                       String    @id @default(cuid())
+  name                     String
+  thumbnail                String?
+  previewUrl               String?
+  category                 String
+  price                    Int       @default(0)
+  isPaid                   Boolean   @default(false)
+  description              String?   @db.Text
+  isActive                 Boolean   @default(true)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+  orders                   Order[]
   packagesWithFreeTemplate Package[] @relation("PackageFreeTemplates")
 
   @@map("template")
 }
 
 model Package {
-  id              String   @id @default(cuid())
-  name            String
-  price           Int      // Legacy price field (for 1 tahun)
-  price1Year      Int?     // Price for 1 year
-  price2Year      Int?     // Price for 2 years
-  price3Year      Int?     // Price for 3 years
-  duration        Int
-  features        String   @db.Text
-  isPopular       Boolean  @default(false)
-  freeDomain      Boolean  @default(false)
-  freeDomains     Domain[] @relation("PackageFreeDomains")
-  freeTemplate    Boolean  @default(false)
-  freeTemplates   Template[] @relation("PackageFreeTemplates")
-  discountBadge   String?  // E.g., "90% OFF", "Limited Promo"
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  orders          Order[]
+  id             String          @id @default(cuid())
+  name           String
+  price          Int // Legacy price field (for 1 tahun)
+  price1Year     Int? // Price for 1 year
+  price2Year     Int? // Price for 2 years
+  price3Year     Int? // Price for 3 years
+  duration       Int
+  features       String          @db.Text
+  isPopular      Boolean         @default(false)
+  freeDomain     Boolean         @default(false)
+  freeDomains    Domain[]        @relation("PackageFreeDomains")
+  freeTemplate   Boolean         @default(false)
+  freeTemplates  Template[]      @relation("PackageFreeTemplates")
+  discountBadge  String? // E.g., "90% OFF", "Limited Promo"
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  orders         Order[]
+  affiliateLinks AffiliateLink[]
 
   @@map("package")
 }
 
 model Service {
-  id          String      @id @default(cuid())
-  name        String
-  description String?     @db.Text
-  price       Int
-  priceType   PriceType   @default(ONE_TIME)
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  orderItems  OrderService[]
+  id                  String           @id @default(cuid())
+  name                String
+  description         String?          @db.Text
+  price               Int
+  priceType           PriceType        @default(ONE_TIME)
+  isActive            Boolean          @default(true)
+  isVisible           Boolean          @default(true)
+  availableInOrder    Boolean          @default(true)
+  availableInServices Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  orderItems          OrderService[]
+  serviceOrders       ServiceOrder[]
+  packages            ServicePackage[]
 
   @@map("service")
+}
+
+model ServicePackage {
+  id                String         @id @default(cuid())
+  serviceId         String
+  service           Service        @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  code              String
+  name              String
+  description       String?        @db.Text
+  etaLabel          String?
+  price             Int
+  durationMonths    Int?
+  isVisible         Boolean        @default(true)
+  visibleInOrder    Boolean        @default(true)
+  visibleInServices Boolean        @default(true)
+  internalOnly      Boolean        @default(false)
+  isActive          Boolean        @default(true)
+  sortOrder         Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  serviceOrders     ServiceOrder[]
+  affiliateLinks    AffiliateServiceLink[]
+
+  @@unique([serviceId, code])
+  @@index([serviceId])
+  @@index([isVisible, isActive])
+  @@index([visibleInOrder, visibleInServices, internalOnly])
+  @@map("servicepackage")
 }
 
 enum PriceType {
@@ -115,17 +149,17 @@ enum PriceType {
 }
 
 model Promo {
-  id              String    @id @default(cuid())
-  code            String    @unique
-  discountType    DiscountType
-  discountValue   Int
-  minTransaction  Int       @default(0)
-  maxDiscount     Int?
-  expiredAt       DateTime?
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  orders          Order[]
+  id             String       @id @default(cuid())
+  code           String       @unique
+  discountType   DiscountType
+  discountValue  Int
+  minTransaction Int          @default(0)
+  maxDiscount    Int?
+  expiredAt      DateTime?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  orders         Order[]
 
   @@map("promo")
 }
@@ -147,6 +181,8 @@ model Order {
   template        Template?      @relation(fields: [templateId], references: [id])
   packageId       String?
   package         Package?       @relation(fields: [packageId], references: [id])
+  affiliateLinkId String?
+  affiliateLink   AffiliateLink? @relation(fields: [affiliateLinkId], references: [id])
   promoId         String?
   promo           Promo?         @relation(fields: [promoId], references: [id])
   services        OrderService[]
@@ -161,14 +197,15 @@ model Order {
   paymentRef      String?
   paidAt          DateTime?
   expiredAt       DateTime?
-  websiteUsername String?        // Login credentials for customer
-  websitePassword String?        // Login credentials for customer
-  loginUrl        String?        // Direct login link
-  websiteEmail    String?        // Email for website access
+  websiteUsername String? // Login credentials for customer
+  websitePassword String? // Login credentials for customer
+  loginUrl        String? // Direct login link
+  websiteEmail    String? // Email for website access
   notes           String?        @db.Text // Admin notes for order progress
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
+  @@index([affiliateLinkId])
   @@map("order")
 }
 
@@ -182,6 +219,43 @@ model OrderService {
 
   @@unique([orderId, serviceId])
   @@map("orderservice")
+}
+
+model ServiceOrder {
+  id                 String          @id @default(cuid())
+  invoiceId          String          @unique
+  serviceId          String
+  service            Service         @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  servicePackageId   String?
+  servicePackage     ServicePackage? @relation(fields: [servicePackageId], references: [id], onDelete: SetNull)
+  affiliateServiceLinkId String?
+  affiliateServiceLink   AffiliateServiceLink? @relation(fields: [affiliateServiceLinkId], references: [id], onDelete: SetNull)
+  packageName        String
+  packageMultiplier  Float           @default(1)
+  packageDescription String?         @db.Text
+  etaLabel           String?
+  customerName       String
+  customerEmail      String
+  customerPhone      String
+  company            String?
+  notes              String?         @db.Text
+  subtotal           Int
+  total              Int
+  status             OrderStatus     @default(PENDING)
+  paymentMethod      String?
+  paymentRef         String?
+  paidAt             DateTime?
+  progressNotes      String?         @db.Text
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([serviceId])
+  @@index([servicePackageId])
+  @@index([affiliateServiceLinkId])
+  @@index([customerEmail])
+  @@index([status])
+  @@index([createdAt])
+  @@map("serviceorder")
 }
 
 enum OrderStatus {
@@ -213,25 +287,46 @@ model SiteSetting {
 }
 
 model Customer {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String       @id @default(cuid())
+  email     String       @unique
   phone     String
   name      String
   company   String?
-  address   String?  @db.Text
-  whatsapp  String?              // NEW
-  notes     String?  @db.Text    // NEW
+  address   String?      @db.Text
+  whatsapp  String? // NEW
+  notes     String?      @db.Text // NEW
+  password  String?      // NEW: For customer login
+  resetToken String?    @unique // NEW: Password reset token
+  resetTokenExpiry DateTime? // NEW: Token expiry
   status    ClientStatus @default(ACTIVE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
   // Relations
-  domains   ClientDomain[]
-  servers   ClientServer[]
-  user      User?          @relation(fields: [userId], references: [id])
-  userId    String?        // Link to system user (optional)
+  domains                 ClientDomain[]
+  servers                 ClientServer[]
+  affiliateLinks          AffiliateLink[]
+  affiliateServiceLinks   AffiliateServiceLink[]
+  affiliateBankAccounts   AffiliateBankAccount[]
+  affiliatePayoutRequests AffiliatePayoutRequest[]
+  user                    User?                    @relation(fields: [userId], references: [id])
+  userId                  String? // Link to system user (optional)
+  invoices                Invoice[] // Link to invoices
+  affiliateRequests      AffiliateRequest[] // Link to affiliate requests
 
   @@map("customer")
+}
+
+// Affiliate activation request model
+model AffiliateRequest {
+  id            String   @id @default(cuid())
+  affiliateCode String   @unique
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 enum ClientStatus {
@@ -240,32 +335,32 @@ enum ClientStatus {
 }
 
 model ClientDomain {
-  id              String        @id @default(cuid())
-  clientEmail     String
-  client          Customer      @relation(fields: [clientEmail], references: [email], onDelete: Cascade)
-  domainName      String        @unique
-  registrar       String?       // Deprecated, use relation below
-  registrarId     String?
-  registrarRel    DomainRegistrar? @relation(fields: [registrarId], references: [id])
-  
-  registeredAt    DateTime
-  expiredAt       DateTime
-  status          DomainStatus  @default(ACTIVE)
-  autoRenew       Boolean       @default(false)
-  notes           String?       @db.Text
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
+  id           String           @id @default(cuid())
+  clientEmail  String
+  client       Customer         @relation(fields: [clientEmail], references: [email], onDelete: Cascade)
+  domainName   String           @unique
+  registrar    String? // Deprecated, use relation below
+  registrarId  String?
+  registrarRel DomainRegistrar? @relation(fields: [registrarId], references: [id])
+
+  registeredAt DateTime
+  expiredAt    DateTime
+  status       DomainStatus @default(ACTIVE)
+  autoRenew    Boolean      @default(false)
+  notes        String?      @db.Text
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
   // Relations
-  servers         DomainServer[]
-  
+  servers DomainServer[]
+
   @@index([clientEmail])
   @@index([registrarId])
   @@map("clientdomain")
 }
 
 model DomainRegistrar {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
   username  String?
   password  String?
@@ -273,11 +368,11 @@ model DomainRegistrar {
   expiredAt DateTime?
   notes     String?   @db.Text
   isActive  Boolean   @default(true)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  domains   ClientDomain[]
+
+  domains ClientDomain[]
 
   @@map("domainregistrar")
 }
@@ -290,28 +385,28 @@ enum DomainStatus {
 }
 
 model ClientServer {
-  id            String       @id @default(cuid())
-  clientEmail   String
-  client        Customer     @relation(fields: [clientEmail], references: [email], onDelete: Cascade)
-  serverName    String
-  ipAddress     String       // Removed unique to allow sharing IPs if needed, or keep unique if strict
-  location      String
-  serverType    ServerType
-  status        ServerStatus @default(ACTIVE)
-  expiredAt     DateTime?
-  
-  // NEW FIELDS
-  username      String?
-  password      String?      // Should be encrypted in app logic
-  loginUrl      String?
-  notes         String?      @db.Text
+  id          String       @id @default(cuid())
+  clientEmail String
+  client      Customer     @relation(fields: [clientEmail], references: [email], onDelete: Cascade)
+  serverName  String
+  ipAddress   String // Removed unique to allow sharing IPs if needed, or keep unique if strict
+  location    String
+  serverType  ServerType
+  status      ServerStatus @default(ACTIVE)
+  expiredAt   DateTime?
 
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  
+  // NEW FIELDS
+  username String?
+  password String? // Should be encrypted in app logic
+  loginUrl String?
+  notes    String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  domains       DomainServer[]
-  
+  domains DomainServer[]
+
   @@index([clientEmail])
   @@map("clientserver")
 }
@@ -330,13 +425,215 @@ enum ServerStatus {
 }
 
 model DomainServer {
-  id        String        @id @default(cuid())
+  id        String       @id @default(cuid())
   domainId  String
-  domain    ClientDomain  @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  domain    ClientDomain @relation(fields: [domainId], references: [id], onDelete: Cascade)
   serverId  String
-  server    ClientServer  @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  createdAt DateTime      @default(now())
-  
+  server    ClientServer @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
   @@unique([domainId, serverId])
   @@map("domainserver")
+}
+
+model AffiliateLink {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  customerId  String
+  customer    Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  packageId   String
+  package     Package          @relation(fields: [packageId], references: [id])
+  isActive    Boolean          @default(true)
+  clicks      Int              @default(0)
+  conversions Int              @default(0)
+  visits      AffiliateVisit[]
+  orders      Order[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([customerId, packageId])
+  @@index([customerId])
+  @@index([packageId])
+  @@map("affiliatelink")
+}
+
+model AffiliateServiceLink {
+  id               String           @id @default(cuid())
+  code             String           @unique
+  customerId       String
+  customer         Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  servicePackageId String
+  servicePackage   ServicePackage   @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
+  isActive         Boolean          @default(true)
+  clicks           Int              @default(0)
+  conversions      Int              @default(0)
+  visits           AffiliateVisit[]
+  serviceOrders    ServiceOrder[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([customerId, servicePackageId])
+  @@index([customerId])
+  @@index([servicePackageId])
+  @@map("affiliateservicelink")
+}
+
+model AffiliateVisit {
+  id                     String                @id @default(cuid())
+  affiliateLinkId        String?
+  affiliateLink          AffiliateLink?         @relation(fields: [affiliateLinkId], references: [id], onDelete: Cascade)
+  affiliateServiceLinkId String?
+  affiliateServiceLink   AffiliateServiceLink?  @relation(fields: [affiliateServiceLinkId], references: [id], onDelete: Cascade)
+  ipAddress              String?
+  userAgent              String?
+  referrer               String?
+  createdAt              DateTime               @default(now())
+
+  @@index([affiliateLinkId])
+  @@index([affiliateServiceLinkId])
+  @@map("affiliatevisit")
+}
+
+enum AffiliatePayoutStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+model AffiliateBankAccount {
+  id                String                   @id @default(cuid())
+  customerId        String
+  customer          Customer                 @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bankName          String
+  accountNumber     String
+  accountHolderName String
+  branch            String?
+  ktpImageUrl       String?
+  isVerified        Boolean                  @default(false)
+  verifiedAt        DateTime?
+  verifiedBy        String?
+  rejectedAt        DateTime?
+  rejectedBy        String?
+  rejectionReason   String?
+  payoutRequests    AffiliatePayoutRequest[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@unique([customerId])
+  @@index([isVerified])
+  @@map("affiliatebankaccount")
+}
+
+model AffiliatePayoutRequest {
+  id              String                @id @default(cuid())
+  customerId      String
+  customer        Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bankAccountId   String
+  bankAccount     AffiliateBankAccount  @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  requestedAmount Int
+  approvedAmount  Int?
+  status          AffiliatePayoutStatus @default(PENDING)
+  customerNote    String?
+  adminNote       String?
+  requestedAt     DateTime              @default(now())
+  reviewedAt      DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([customerId, status])
+  @@index([bankAccountId])
+  @@index([requestedAt])
+  @@map("affiliatepayoutrequest")
+}
+
+model AffiliateSetting {
+  id                String   @id @default(cuid())
+  commissionPercent Int      @default(10)
+  minPayout         Int      @default(50000)
+  adminFeePercent   Int      @default(0)
+  rules             String?  @db.Text
+  syncedPackageIds  String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("affiliatesetting")
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  customerId    String?
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  customerName  String
+  customerEmail String
+  customerPhone String?
+  description   String?       @db.Text
+  items         InvoiceItem[]
+  subtotal      Int
+  tax           Int           @default(0)
+  discount      Int           @default(0)
+  total         Int
+  amountPaid    Int           @default(0)
+  status        InvoiceStatus @default(PENDING)
+  paymentMethod String?
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime
+  notes         String?       @db.Text
+  payments      Payment[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@map("invoice")
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int      @default(1)
+  price       Int
+  total       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@map("invoiceitem")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  invoiceId       String?
+  invoice         Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  amount          Int
+  paymentMethod   String // Bank transfer, E-wallet, Payment gateway
+  paymentDate     DateTime      @default(now())
+  referenceNumber String?
+  proofUrl        String? // For manual verification
+  status          PaymentStatus @default(PENDING)
+  notes           String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([invoiceId])
+  @@index([status])
+  @@map("payment")
+}
+
+enum InvoiceStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  FAILED
 }

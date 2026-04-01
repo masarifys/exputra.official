@@ -22,6 +22,35 @@ interface Template {
   isPaid: boolean;
 }
 
+function getSafeTemplateThumbnailSrc(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+
+  const value = String(raw).trim();
+  if (!value) return null;
+
+  // Accept absolute URLs.
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      const parsed = new URL(value);
+      return parsed.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  // Accept local/public paths and normalize backslashes.
+  if (value.startsWith('/')) {
+    return value.replace(/\\/g, '/');
+  }
+
+  // If DB stores relative paths like "uploads/file.jpg", normalize to "/uploads/file.jpg".
+  if (/^[a-zA-Z0-9._\-/]+$/.test(value)) {
+    return `/${value.replace(/^\/+/, '').replace(/\\/g, '/')}`;
+  }
+
+  return null;
+}
+
 export default function Home() {
   const [settings, setSettings] = useState<SiteSettings>({
     siteName: 'eXputra Designs',
@@ -355,37 +384,41 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-            {templates.length > 0 ? templates.map((template) => (
-              <div key={template.id} className="group relative overflow-hidden rounded-xl">
-                <div className="relative h-48 md:h-64 bg-slate-200">
-                  {template.thumbnail ? (
-                    <Image
-                      src={template.thumbnail}
-                      alt={template.name}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                  ) : (
+            {templates.length > 0 ? templates.map((template) => {
+              const thumbnailSrc = getSafeTemplateThumbnailSrc(template.thumbnail);
+
+              return (
+                <div key={template.id} className="group relative overflow-hidden rounded-xl">
+                  <div className="relative h-48 md:h-64 bg-slate-200">
+                    {thumbnailSrc ? (
+                      <Image
+                        src={thumbnailSrc}
+                        alt={template.name}
+                        fill
+                        className="object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-400 bg-gradient-to-br from-slate-100 to-slate-200">
                       <span className="text-6xl">🖼️</span>
                     </div>
-                  )}
-                  {template.isPaid && (
-                    <span className="absolute top-4 left-4 bg-orange-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                      Premium
-                    </span>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity duration-300"></div>
-                  <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300">
-                    <h3 className="font-bold text-white text-lg">{template.name}</h3>
-                    <p className="text-slate-300 text-sm">{template.category}</p>
-                    <p className="text-orange-400 font-semibold mt-2">
-                      {template.price === 0 ? 'Gratis' : `Rp ${template.price.toLocaleString('id-ID')}`}
-                    </p>
+                    )}
+                    {template.isPaid && (
+                      <span className="absolute top-4 left-4 bg-orange-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                        Premium
+                      </span>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300">
+                      <h3 className="font-bold text-white text-lg">{template.name}</h3>
+                      <p className="text-slate-300 text-sm">{template.category}</p>
+                      <p className="text-orange-400 font-semibold mt-2">
+                        {template.price === 0 ? 'Gratis' : `Rp ${template.price.toLocaleString('id-ID')}`}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )) : (
+              );
+            }) : (
               [...Array(6)].map((_, i) => (
                 <div key={i} className="rounded-xl overflow-hidden animate-pulse">
                   <div className="h-64 bg-slate-200"></div>

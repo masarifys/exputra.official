@@ -8,6 +8,11 @@ import { Alert, AlertDescription } from '@/metronic-components/ui/alert';
 
 interface ServiceItem {
   id: string;
+  source: 'WEBSITE_ORDER' | 'SERVICE_ORDER';
+  status?: 'PENDING' | 'PAID' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED';
+  progressNotes?: string | null;
+  packageName?: string | null;
+  etaLabel?: string | null;
   price: number;
   service: {
     id: string;
@@ -33,6 +38,22 @@ const priceTypeColors: Record<string, string> = {
   ONE_TIME: 'bg-purple-50 text-purple-700',
   PER_YEAR: 'bg-blue-50 text-blue-700',
   MONTHLY: 'bg-emerald-50 text-emerald-700',
+};
+
+const statusLabels: Record<string, string> = {
+  PENDING: 'Menunggu Pembayaran',
+  PAID: 'Dibayar',
+  PROCESSING: 'Sedang Diproses',
+  COMPLETED: 'Selesai',
+  CANCELLED: 'Dibatalkan',
+};
+
+const statusColors: Record<string, string> = {
+  PENDING: 'bg-yellow-50 text-yellow-700',
+  PAID: 'bg-blue-50 text-blue-700',
+  PROCESSING: 'bg-indigo-50 text-indigo-700',
+  COMPLETED: 'bg-green-50 text-green-700',
+  CANCELLED: 'bg-red-50 text-red-700',
 };
 
 export default function ClientServicesPage() {
@@ -175,6 +196,11 @@ export default function ClientServicesPage() {
                       {groupItems[0].order.domainName}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">{groupItems[0].order.invoiceId}</p>
+                    {groupItems[0].source === 'SERVICE_ORDER' && groupItems[0].status ? (
+                      <Badge className={statusColors[groupItems[0].status]}>
+                        {statusLabels[groupItems[0].status]}
+                      </Badge>
+                    ) : null}
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Tanggal</p>
@@ -200,10 +226,26 @@ export default function ClientServicesPage() {
                           <Badge className={priceTypeColors[item.service.priceType]}>
                             {priceTypeLabels[item.service.priceType]}
                           </Badge>
+                          {item.source === 'SERVICE_ORDER' && item.status ? (
+                            <Badge className={statusColors[item.status]}>
+                              {statusLabels[item.status]}
+                            </Badge>
+                          ) : null}
                         </div>
                         {item.service.description && (
                           <p className="text-gray-600 text-sm mt-2">{item.service.description}</p>
                         )}
+                        {item.packageName ? (
+                          <p className="text-xs text-gray-600 mt-2">Paket: {item.packageName}</p>
+                        ) : null}
+                        {item.etaLabel ? (
+                          <p className="text-xs text-gray-600 mt-1">Estimasi: {item.etaLabel}</p>
+                        ) : null}
+                        {item.progressNotes ? (
+                          <p className="text-xs text-cyan-700 mt-2 bg-cyan-50 border border-cyan-200 rounded px-2 py-1 inline-block">
+                            Catatan Tim: {item.progressNotes}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="text-right whitespace-nowrap">
                         <p className="text-xs text-gray-500 font-medium uppercase mb-1">Harga</p>

@@ -1,24 +1,33 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Check, LayoutDashboard, ShoppingCart } from 'lucide-react';
+import { useOrderStore } from '@/store/useOrderStore';
 
 interface OrderData {
     invoiceId: string;
-    domainSearch: string;
-    selectedDomain: { extension: string; price: number } | null;
-    selectedPackage: { name: string; price: number } | null;
-    personalData: { fullName: string; email: string; phone: string };
+    domainSearch?: string;
+    selectedDomain?: { extension: string; price: number } | null;
+    selectedPackage?: { name: string; price: number } | null;
+    personalData?: { fullName: string; email: string; phone: string };
     totalPrice: number;
     timestamp: number;
+    // Fields for ServiceOrder
+    serviceName?: string;
+    packageName?: string;
+    customerName?: string;
 }
 
 export default function PaymentSuccessClient() {
     const [isHydrated, setIsHydrated] = useState(false);
     const [orderData, setOrderData] = useState<OrderData | null>(null);
     const [confirmationStatus, setConfirmationStatus] = useState<'confirming' | 'confirmed' | 'error'>('confirming');
+    const [paidAtTime, setPaidAtTime] = useState<string>('');
     const searchParams = useSearchParams();
+    const router = useRouter();
+    const resetOrder = useOrderStore((state) => state.reset);
 
     const reference =
         searchParams.get('reference') ||
@@ -49,11 +58,16 @@ export default function PaymentSuccessClient() {
                     console.log('[PaymentSuccess] Confirming payment for:', parsed.invoiceId);
                     confirmPayment(parsed.invoiceId);
                     
-                    // Add timeout - if confirmation takes too long, show error
+                    // Add timeout - if confirmation takes too long, but we have resultCode=00, show success anyway
                     timeoutId = setTimeout(() => {
-                        console.warn('[PaymentSuccess] Confirmation timeout after 10 seconds');
-                        setConfirmationStatus('error');
-                    }, 10000);
+                        if (resultCode === '00') {
+                            console.warn('[PaymentSuccess] Confirmation timeout, but resultCode is 00. Forcing success.');
+                            setConfirmationStatus('confirmed');
+                        } else {
+                            console.warn('[PaymentSuccess] Confirmation timeout after 15 seconds');
+                            setConfirmationStatus('error');
+                        }
+                    }, 15000);
                 }
             } catch (e) {
                 console.error('[PaymentSuccess] Failed to parse order data:', e);
@@ -99,6 +113,28 @@ export default function PaymentSuccessClient() {
 
             if (response.ok && data.success) {
                 setConfirmationStatus('confirmed');
+                
+                // Overlay API data on top of localStorage data for perfect accuracy
+                if (data.total !== undefined) {
+                    setOrderData(prev => ({
+                        ...prev!,
+                        invoiceId: invoiceId, // Ensure ID matches
+                        totalPrice: data.total,
+                        customerName: data.customerName,
+                        packageName: data.packageName,
+                    }));
+                }
+
+                // Set the paid timestamp
+                const now = new Date();
+                setPaidAtTime(now.toLocaleString('id-ID', {
+                    day: 'numeric',
+                    month: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                }).replace(/\//g, '/'));
             } else {
                 console.error('[PaymentSuccess] Confirm failed:', data);
                 setConfirmationStatus('error');
@@ -110,9 +146,12 @@ export default function PaymentSuccessClient() {
     };
 
     const handleNewOrder = () => {
+        // Reset the order store to clear invoiceId and other data
+        resetOrder();
+        // Remove temporary localStorage data
         localStorage.removeItem('pending-order');
-        localStorage.removeItem('order-storage');
-        window.location.href = '/';
+        // Redirect to order page
+        router.push('/order');
     };
 
     if (!isHydrated) {
@@ -125,102 +164,126 @@ export default function PaymentSuccessClient() {
         );
     }
 
+    const domainName = orderData?.domainSearch && orderData?.selectedDomain 
+        ? `${orderData.domainSearch}${orderData.selectedDomain.extension}` 
+        : orderData?.serviceName || 'Layanan Digital';
+
+    const packageName = orderData?.selectedPackage?.name || orderData?.packageName || '-';
+    const customerName = orderData?.personalData?.fullName || orderData?.customerName || '-';
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 px-4 py-6">
-            <div className="max-w-lg mx-auto bg-white rounded-xl shadow-lg p-6 text-center">
+        <div className="min-h-screen bg-[#F0F4F8] flex items-center justify-center px-4 py-12">
+            <div className="max-w-3xl w-full bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 md:p-12 text-center border border-gray-100">
                 {confirmationStatus === 'confirming' && (
-                    <>
-                        <div className="flex justify-center mb-4">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
+                    <div className="py-12">
+                        <div className="flex justify-center mb-6">
+                            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
                         </div>
-                        <h1 className="text-2xl font-bold mb-2">Memverifikasi Pembayaran...</h1>
-                        <p className="text-gray-600">
-                            Sistem sedang memverifikasi pembayaran Anda dengan server pembayaran.
+                        <h1 className="text-3xl font-bold text-gray-900 mb-3">Memverifikasi Pembayaran...</h1>
+                        <p className="text-lg text-gray-600">
+                            Mohon tunggu sebentar, kami sedang memproses konfirmasi Anda.
                         </p>
-                    </>
+                    </div>
                 )}
 
                 {confirmationStatus === 'confirmed' && (
                     <>
-                        <div className="flex justify-center mb-4">
-                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
+                        <div className="flex justify-center mb-8">
+                            <div className="w-24 h-24 bg-[#E6F9F1] rounded-full flex items-center justify-center">
+                                <div className="w-16 h-16 bg-[#27C87C] rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(39,200,124,0.3)]">
+                                    <Check className="w-10 h-10 text-white stroke-[3px]" />
+                                </div>
                             </div>
                         </div>
-                        <h1 className="text-2xl font-bold mb-2">Pembayaran Berhasil!</h1>
-                        <p className="text-gray-600 mb-6">
-                            Terima kasih atas pembayaran Anda. Pesanan Anda sedang diproses.
+                        
+                        <h1 className="text-3xl md:text-4xl font-bold text-[#1A1C1E] mb-4">Pembayaran Berhasil!</h1>
+                        
+                        <p className="text-gray-600 text-lg leading-relaxed mb-6 max-w-2xl mx-auto">
+                            Layanan Anda <span className="font-bold text-gray-900">{domainName}</span> dengan No Invoice <span className="font-bold text-gray-900">{orderData?.invoiceId}</span> telah dibayar.
                         </p>
 
-                        <div className="text-left bg-gray-50 rounded-lg p-4 mb-6">
-                            <p>
-                                <strong>Invoice:</strong> {orderData?.invoiceId || '-'}
-                            </p>
-                            <p>
-                                <strong>Total:</strong>{' '}
-                                Rp {(orderData?.totalPrice || 0).toLocaleString('id-ID')}
-                            </p>
+                        <p className="text-[#8B939E] text-md mb-10">
+                            Dibayar pada: {paidAtTime}
+                        </p>
+
+                        <div className="max-w-2xl mx-auto bg-[#F8F9FB] rounded-2xl p-6 md:p-8 mb-10 text-left border border-gray-100/50">
+                            <div className="grid grid-cols-1 gap-4 text-[15px] md:text-base">
+                                <div className="flex py-1.5 border-b border-gray-100 last:border-0">
+                                    <span className="w-24 md:w-32 text-gray-500 font-medium">Layanan:</span>
+                                    <span className="flex-1 text-[#1A1C1E] font-semibold">{domainName}</span>
+                                </div>
+                                <div className="flex py-1.5 border-b border-gray-100 last:border-0">
+                                    <span className="w-24 md:w-32 text-gray-500 font-medium">Paket:</span>
+                                    <span className="flex-1 text-[#1A1C1E] font-semibold">{packageName}</span>
+                                </div>
+                                <div className="flex py-1.5 border-b border-gray-100 last:border-0">
+                                    <span className="w-24 md:w-32 text-gray-500 font-medium">Total:</span>
+                                    <span className="flex-1 text-[#1A1C1E] font-semibold">IDR {(orderData?.totalPrice || 0).toLocaleString('id-ID')}</span>
+                                </div>
+                                <div className="flex py-1.5 border-b border-gray-100 last:border-0">
+                                    <span className="w-24 md:w-32 text-gray-500 font-medium">Pemesan:</span>
+                                    <span className="flex-1 text-[#1A1C1E] font-semibold">{customerName}</span>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-col sm:flex-row gap-4 max-w-2xl mx-auto">
                             <Link
-                                href="/client/dashboard/invoices"
-                                className="flex-1 bg-cyan-500 text-white py-2 rounded-lg hover:bg-cyan-600 transition-colors font-medium"
+                                href="/client/dashboard"
+                                className="flex-1 flex items-center justify-center gap-2 bg-[#2563EB] text-white py-4 rounded-xl hover:bg-blue-700 transition-all font-bold text-lg shadow-[0_4px_12px_rgba(37,99,235,0.2)]"
                             >
-                                Cek Pesanan
+                                <LayoutDashboard className="w-5 h-5" />
+                                Ke Dashboard
                             </Link>
 
                             <button
                                 onClick={handleNewOrder}
-                                className="flex-1 border border-cyan-500 text-cyan-600 py-2 rounded-lg hover:bg-cyan-50 transition-colors font-medium"
+                                className="flex-1 flex items-center justify-center gap-2 bg-[#F1F3F5] text-[#495057] py-4 rounded-xl hover:bg-gray-200 transition-all font-bold text-lg"
                             >
-                                Pesan Lagi
+                                <ShoppingCart className="w-5 h-5" />
+                                Pesan Lainnya
                             </button>
                         </div>
                     </>
                 )}
 
                 {confirmationStatus === 'error' && (
-                    <>
-                        <div className="flex justify-center mb-4">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-                                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                    <div className="py-8">
+                        <div className="flex justify-center mb-8">
+                            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center">
+                                <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center">
+                                    <span className="text-white text-4xl font-bold">!</span>
+                                </div>
                             </div>
                         </div>
-                        <h1 className="text-2xl font-bold mb-2 text-red-600">Verifikasi Gagal</h1>
-                        <p className="text-gray-600 mb-6">
-                            Terjadi kesalahan saat memverifikasi pembayaran. Pesanan Anda mungkin sudah tercatat.
+                        <h1 className="text-3xl font-bold text-red-600 mb-4">Verifikasi Gagal</h1>
+                        <p className="text-lg text-gray-600 mb-8">
+                            Terjadi kesalahan saat memverifikasi pembayaran. Jangan khawatir, data pesanan Anda tetap tersimpan.
                         </p>
 
-                        <div className="text-left bg-yellow-50 rounded-lg p-4 mb-6 border border-yellow-200">
-                            <p className="text-sm text-yellow-800">
-                                <strong>Invoice:</strong> {orderData?.invoiceId || '-'}
-                            </p>
-                            <p className="text-sm text-yellow-800 mt-2">
-                                Silakan login ke dashboard untuk memeriksa status pesanan Anda.
+                        <div className="bg-yellow-50 rounded-2xl p-6 mb-8 border border-yellow-100 text-left">
+                            <p className="text-[#856404] font-semibold mb-2">Invoice: {orderData?.invoiceId || '-'}</p>
+                            <p className="text-[#856404] text-sm opacity-90">
+                                Silakan hubungi admin atau login ke dashboard untuk memverifikasi status pesanan Anda secara manual.
                             </p>
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-col sm:flex-row gap-4 max-w-2xl mx-auto">
                             <Link
                                 href="/client/dashboard/invoices"
-                                className="flex-1 bg-cyan-500 text-white py-2 rounded-lg hover:bg-cyan-600 transition-colors font-medium"
+                                className="flex-1 bg-blue-600 text-white py-4 rounded-xl hover:bg-blue-700 transition-colors font-bold"
                             >
-                                Cek Status di Dashboard
+                                Cek di Dashboard
                             </Link>
 
                             <button
                                 onClick={() => window.location.reload()}
-                                className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                                className="flex-1 bg-white border-2 border-gray-200 text-gray-700 py-4 rounded-xl hover:bg-gray-50 transition-colors font-bold"
                             >
                                 Coba Lagi
                             </button>
                         </div>
-                    </>
+                    </div>
                 )}
             </div>
         </div>

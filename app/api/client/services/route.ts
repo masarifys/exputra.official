@@ -1,23 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { cookies } from 'next/headers';
+import { resolveClientSessionCustomer } from '@/lib/client-session';
+
+const prismaAny = prisma as any;
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('client_session');
+    const session = await resolveClientSessionCustomer();
 
-    if (!sessionCookie) {
+    if (!session?.email) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const session = JSON.parse(sessionCookie.value);
-
-    // Get all services from all orders of this client
-    const services = await prisma.orderService.findMany({
+    const websiteOrderServices = await prisma.orderService.findMany({
       where: {
         order: {
           customerEmail: session.email,
@@ -41,7 +39,65 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(services);
+    const serviceOrders = await prismaAny.serviceOrder.findMany({
+      where: {
+        customerEmail: session.email,
+      },
+      include: {
+        service: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const normalizedWebsiteServices = websiteOrderServices.map((item) => ({
+      id: item.id,
+      source: 'WEBSITE_ORDER',
+      status: item.order ? 'PAID' : 'PENDING',
+      progressNotes: null,
+      packageName: null,
+      etaLabel: null,
+      price: item.price,
+      service: {
+        id: item.service.id,
+        name: item.service.name,
+        description: item.service.description,
+        priceType: item.service.priceType,
+      },
+      order: {
+        id: item.order.id,
+        invoiceId: item.order.invoiceId,
+        domainName: item.order.domainName,
+        createdAt: item.order.createdAt,
+      },
+    }));
+
+    const normalizedServiceOrders = serviceOrders.map((item: any) => ({
+      id: item.id,
+      source: 'SERVICE_ORDER',
+      status: item.status,
+      progressNotes: item.progressNotes || null,
+      packageName: item.packageName || null,
+      etaLabel: item.etaLabel || null,
+      price: item.total,
+      service: {
+        id: item.service.id,
+        name: item.service.name,
+        description: item.service.description,
+        priceType: item.service.priceType,
+      },
+      order: {
+        id: item.id,
+        invoiceId: item.invoiceId,
+        domainName: item.packageName || 'Layanan Pendukung',
+        createdAt: item.createdAt,
+      },
+    }));
+
+    const combined = [...normalizedServiceOrders, ...normalizedWebsiteServices].sort(
+      (a, b) => new Date(b.order.createdAt).getTime() - new Date(a.order.createdAt).getTime()
+    );
+
+    return NextResponse.json(combined);
   } catch (error) {
     console.error('Get Client Services Error:', error);
     return NextResponse.json(

@@ -22,6 +22,8 @@ import {
   Menu,
   CreditCard,
   Zap,
+  Megaphone,
+  FileText,
 } from 'lucide-react';
 
 const menuSections = [
@@ -43,8 +45,11 @@ const menuSections = [
       { href: '/admin/domains', label: 'Extensions', icon: Type },
       { href: '/admin/templates', label: 'Templates', icon: Palette },
       { href: '/admin/packages', label: 'Packages', icon: Package },
+      { href: '/admin/affiliate', label: 'Affiliate', icon: Megaphone },
       { href: '/admin/services', label: 'Services', icon: Wrench },
+      { href: '/admin/service-orders', label: 'Service Orders', icon: ShoppingCart },
       { href: '/admin/promos', label: 'Promos', icon: Gift },
+      { href: '/admin/invoices', label: 'Invoices', icon: FileText },
     ]
   },
   {

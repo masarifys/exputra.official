@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { sendWhatsAppMessage } from '@/lib/fonnte';
 
 /**
  * Manual endpoint to check and update order status
@@ -22,7 +23,35 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Update Status] Checking order: ${invoiceId}`);
 
-    // Find order with all related data
+    // Determine table based on prefix
+    const isServiceOrder = invoiceId.startsWith('SRV-');
+    
+    if (isServiceOrder) {
+      const serviceOrder = await prisma.serviceOrder.findUnique({
+        where: { invoiceId },
+      });
+
+      if (!serviceOrder) {
+        return NextResponse.json({ message: 'Service Order not found', invoiceId }, { status: 404 });
+      }
+
+      if (serviceOrder.status === 'PENDING') {
+        const updated = await prisma.serviceOrder.update({
+          where: { invoiceId },
+          data: { status: 'PAID', paidAt: new Date() },
+        });
+
+        // Send WA notification for service order
+        const waMsg = `Halo ${serviceOrder.customerName},\n\nTerima kasih! Pembayaran untuk layanan Anda (No Invoice: ${invoiceId}) telah *BERHASIL* dikonfirmasi.\n\nTim kami akan segera memproses detail pesanan Anda.`;
+        await sendWhatsAppMessage(serviceOrder.customerPhone, waMsg);
+
+        return NextResponse.json({ success: true, message: 'Service Order status updated to PAID', order: updated });
+      }
+
+      return NextResponse.json({ success: false, message: `Status is ${serviceOrder.status}`, order: serviceOrder }, { status: 400 });
+    }
+
+    // Default to regular Order
     const order = await prisma.order.findUnique({
       where: { invoiceId },
       include: {
@@ -97,6 +126,10 @@ export async function POST(request: NextRequest) {
         console.error('[Update Status] Failed to create ClientDomain:', err);
       }
 
+      // Send WA notification
+      const waMsg = `Halo ${order.customerName},\n\nPembayaran untuk pesanan website Anda (No Invoice: ${invoiceId}) telah *BERHASIL* dikonfirmasi.\n\nTim Exputra akan segera memproses pesanan Anda!`;
+      await sendWhatsAppMessage(order.customerPhone, waMsg);
+
       return NextResponse.json({
         success: true,
         message: 'Order status updated to PAID',
@@ -134,7 +167,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`[Check Status] Checking order: ${invoiceId}`);
+    const isServiceOrder = invoiceId.startsWith('SRV-');
+
+    if (isServiceOrder) {
+      const serviceOrder = await prisma.serviceOrder.findUnique({
+        where: { invoiceId },
+      });
+
+      if (!serviceOrder) {
+        return NextResponse.json({ message: 'Service Order not found', invoiceId }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        order: {
+          invoiceId: serviceOrder.invoiceId,
+          status: serviceOrder.status,
+          customerEmail: serviceOrder.customerEmail,
+          customerName: serviceOrder.customerName,
+          total: serviceOrder.total,
+          createdAt: serviceOrder.createdAt,
+          paidAt: serviceOrder.paidAt,
+          paymentRef: serviceOrder.paymentRef,
+        }
+      });
+    }
 
     const order = await prisma.order.findUnique({
       where: { invoiceId },

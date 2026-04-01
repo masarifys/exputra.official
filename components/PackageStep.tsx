@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useOrderStore } from '@/store/useOrderStore';
 import { Package, AddOn } from '@/types';
 
+let _pkgIsLoggedInCache: boolean | null = null;
+
 interface PackageFromDB {
   id: string;
   name: string;
@@ -48,7 +50,7 @@ export default function PackageStep() {
     try {
       const [packagesRes, servicesRes] = await Promise.all([
         fetch('/api/public/packages'),
-        fetch('/api/public/services'),
+        fetch('/api/public/services?channel=order'),
       ]);
 
       if (packagesRes.ok) {
@@ -71,6 +73,18 @@ export default function PackageStep() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (loading || packages.length === 0 || selectedPackage) return;
+
+    const affiliatePackageId = localStorage.getItem('affiliate_package_id');
+    if (!affiliatePackageId) return;
+
+    const promotedPackage = packages.find((pkg) => pkg.id === affiliatePackageId);
+    if (promotedPackage) {
+      handlePackageSelect(promotedPackage);
+    }
+  }, [loading, packages, selectedPackage]);
+
   // Sync selected add-ons with available add-ons
   // This handles the case where a user selected an add-on that is no longer available/active
   useEffect(() => {
@@ -90,6 +104,20 @@ export default function PackageStep() {
   const setPromoCode = useOrderStore((state) => state.setPromoCode);
   const getTotalPrice = useOrderStore((state) => state.getTotalPrice);
   const setCurrentStep = useOrderStore((state) => state.setCurrentStep);
+  const [isLoggedIn, setIsLoggedIn] = useState(_pkgIsLoggedInCache ?? false);
+
+  useEffect(() => {
+    if (_pkgIsLoggedInCache !== null) {
+      setIsLoggedIn(_pkgIsLoggedInCache);
+      return;
+    }
+    fetch('/api/client/profile')
+      .then((res) => {
+        if (res.ok) { _pkgIsLoggedInCache = true; setIsLoggedIn(true); }
+        else { _pkgIsLoggedInCache = false; }
+      })
+      .catch(() => { _pkgIsLoggedInCache = false; });
+  }, []);
 
   const handlePackageSelect = (pkg: PackageFromDB) => {
     const priceForDuration = 
@@ -152,7 +180,7 @@ export default function PackageStep() {
   };
 
   const handlePrevious = () => {
-    setCurrentStep(3);
+    setCurrentStep(isLoggedIn ? 2 : 3);
   };
 
   const isAddOnSelected = (addonId: string) => {
@@ -166,7 +194,7 @@ export default function PackageStep() {
       {/* Duration Selection */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Pilih Durasi Berlangganan</h3>
-        <div className="flex gap-3 flex-wrap">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {[1, 2, 3].map((duration) => (
             <button
               key={duration}
@@ -176,7 +204,7 @@ export default function PackageStep() {
                   handlePackageSelect(packages.find(p => p.id === selectedPackage.id)!);
                 }
               }}
-              className={`px-8 py-4 rounded-lg font-bold text-lg transition-all duration-200 ${
+              className={`w-full px-2 sm:px-6 py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg whitespace-nowrap transition-all duration-200 ${
                 selectedDuration === duration
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-xl scale-105 ring-2 ring-offset-2 ring-cyan-400'
                   : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-cyan-400 hover:shadow-md'

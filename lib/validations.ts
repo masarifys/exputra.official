@@ -40,7 +40,26 @@ export const serviceSchema = z.object({
   description: z.string().optional(),
   price: z.number().min(0),
   priceType: z.enum(['ONE_TIME', 'PER_YEAR', 'MONTHLY']).default('ONE_TIME'),
+  isVisible: z.boolean().default(true),
+  availableInOrder: z.boolean().default(true),
+  availableInServices: z.boolean().default(true),
   isActive: z.boolean().default(true),
+});
+
+export const servicePackageSchema = z.object({
+  serviceId: z.string().min(1),
+  code: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  etaLabel: z.string().optional(),
+  price: z.number().min(0),
+  durationMonths: z.number().int().min(1).max(36).optional().nullable(),
+  isVisible: z.boolean().default(true),
+  visibleInOrder: z.boolean().default(true),
+  visibleInServices: z.boolean().default(true),
+  internalOnly: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).default(0),
 });
 
 export const promoSchema = z.object({
@@ -62,6 +81,7 @@ export type DomainInput = z.infer<typeof domainSchema>;
 export type TemplateInput = z.infer<typeof templateSchema>;
 export type PackageInput = z.infer<typeof packageSchema>;
 export type ServiceInput = z.infer<typeof serviceSchema>;
+export type ServicePackageInput = z.infer<typeof servicePackageSchema>;
 export type PromoInput = z.infer<typeof promoSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 

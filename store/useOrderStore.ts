@@ -19,8 +19,13 @@ export const useOrderStore = create<OrderState>()(
       selectedPackage: null,
       selectedAddOns: [],
       promoCode: null,
+      invoiceId: '',
+      _hasHydrated: false,
+      orderInitiated: false,
 
       setCurrentStep: (step: number) => set({ currentStep: step }),
+      setHasHydrated: (state: boolean) => set({ _hasHydrated: state }),
+      setOrderInitiated: (val: boolean) => set({ orderInitiated: val }),
 
       setDomainSearch: (search: string) => set({ domainSearch: search }),
 
@@ -44,6 +49,8 @@ export const useOrderStore = create<OrderState>()(
       },
 
       setPromoCode: (promo: PromoCode | null) => set({ promoCode: promo }),
+
+      setInvoiceId: (id: string) => set({ invoiceId: id }),
 
       getTotalPrice: () => {
         const { selectedDomain, selectedTemplate, selectedPackage, selectedAddOns, promoCode } = get();
@@ -93,10 +100,15 @@ export const useOrderStore = create<OrderState>()(
         selectedPackage: null,
         selectedAddOns: [],
         promoCode: null,
+        invoiceId: '',
+        orderInitiated: false,
       }),
     }),
     {
       name: 'order-storage',
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

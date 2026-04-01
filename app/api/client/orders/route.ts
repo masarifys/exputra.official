@@ -1,37 +1,82 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { cookies } from 'next/headers';
+import { resolveClientSessionCustomer } from '@/lib/client-session';
+
+const prismaAny = prisma as any;
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('client_session');
+    const session = await resolveClientSessionCustomer();
 
-    if (!sessionCookie) {
+    if (!session?.email) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const session = JSON.parse(sessionCookie.value);
+    const [websiteOrders, serviceOrders] = await Promise.all([
+      prisma.order.findMany({
+        where: {
+          customerEmail: session.email,
+        },
+        include: {
+          domain: true,
+          template: true,
+          package: true,
+          promo: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      prismaAny.serviceOrder.findMany({
+        where: {
+          customerEmail: session.email,
+        },
+        include: {
+          service: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              priceType: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+    ]);
 
-    const orders = await prisma.order.findMany({
-      where: {
-        customerEmail: session.email,
+    const normalizedServiceOrders = serviceOrders.map((item: any) => ({
+      id: item.id,
+      invoiceId: item.invoiceId,
+      domainName: item.service?.name || 'Layanan Pendukung',
+      customerName: item.customerName,
+      customerEmail: item.customerEmail,
+      total: item.total,
+      status: item.status,
+      createdAt: item.createdAt,
+      domain: { extension: '' },
+      template: null,
+      package: {
+        name: item.packageName || 'Paket Layanan',
+        duration: null,
       },
-      include: {
-        domain: true,
-        template: true,
-        package: true,
-        promo: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+      notes: item.notes || null,
+      progressNotes: item.progressNotes || null,
+      etaLabel: item.etaLabel || null,
+      serviceFlow: true,
+      service: item.service || null,
+    }));
 
-    return NextResponse.json(orders);
+    const combinedOrders = [...websiteOrders, ...normalizedServiceOrders].sort(
+      (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return NextResponse.json(combinedOrders);
   } catch (error) {
     console.error('Get Client Orders Error:', error);
     return NextResponse.json(

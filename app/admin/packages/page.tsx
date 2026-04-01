@@ -317,8 +317,8 @@ export default function PackagesPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-          <div className="bg-white rounded-xl w-full max-w-lg mx-4 shadow-2xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 overflow-y-auto py-4 sm:py-8">
+          <div className="bg-white rounded-xl w-full max-w-3xl mx-3 sm:mx-4 shadow-2xl max-h-[92vh] flex flex-col">
             {/* Modal Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">
@@ -333,7 +333,7 @@ export default function PackagesPage() {
             </div>
 
             {/* Modal Content */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Nama Paket
@@ -347,7 +347,7 @@ export default function PackagesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
                     Harga 1 Tahun (IDR)
@@ -379,7 +379,7 @@ export default function PackagesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
                     Harga 2 Tahun (IDR)
@@ -455,7 +455,7 @@ export default function PackagesPage() {
                   {formData.freeDomain && (
                     <div className="pl-6 mt-2">
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Pilih Ekstensi Domain</label>
-                      <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded bg-gray-50">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-52 overflow-y-auto border p-2 rounded bg-gray-50">
                         {domains.map((domain) => (
                           <label key={domain.id} className="flex items-center space-x-2 text-sm">
                             <input
@@ -493,7 +493,7 @@ export default function PackagesPage() {
                   {formData.freeTemplate && (
                     <div className="pl-6 mt-2">
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Pilih Template</label>
-                      <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded bg-gray-50">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-52 overflow-y-auto border p-2 rounded bg-gray-50">
                         {templates.map((template) => (
                           <label key={template.id} className="flex items-center space-x-2 text-sm">
                             <input

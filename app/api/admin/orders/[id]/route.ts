@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { sendWhatsAppMessage } from '@/lib/fonnte';
 
 export async function DELETE(
   request: NextRequest,
@@ -153,6 +154,11 @@ export async function PUT(
         }
       }
     });
+
+    if (status !== undefined && finalOrder) {
+      const waMsg = `Halo ${finalOrder.customerName},\n\nStatus pesanan website Anda (No Invoice: ${finalOrder.invoiceId}) telah diperbarui menjadi *${status}*.\n\nSilakan cek dashboard klien untuk detail lebih lanjut.`;
+      await sendWhatsAppMessage(finalOrder.customerPhone, waMsg);
+    }
 
     return NextResponse.json({
       success: true,

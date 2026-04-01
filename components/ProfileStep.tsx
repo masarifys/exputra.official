@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useOrderStore } from '@/store/useOrderStore';
 
 export default function ProfileStep() {
@@ -13,6 +13,35 @@ export default function ProfileStep() {
     email: '',
     phone: '',
   });
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Check session and auto-fill personal data
+  useEffect(() => {
+    fetch('/api/client/profile')
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error('not logged in');
+      })
+      .then((data) => {
+        if (data.name && data.email && data.phone) {
+          setPersonalData({
+            fullName: data.name,
+            email: data.email,
+            phone: data.phone,
+          });
+          setIsLoggedIn(true);
+          // Auto-skip to step 4
+          setCurrentStep(4);
+        }
+      })
+      .catch(() => {
+        // Not logged in, show the form normally
+        setIsLoggedIn(false);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -63,6 +92,51 @@ export default function ProfileStep() {
   const handlePrevious = () => {
     setCurrentStep(2);
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl animate-pulse space-y-4">
+        <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+        <div className="h-12 bg-gray-200 rounded"></div>
+        <div className="h-12 bg-gray-200 rounded"></div>
+        <div className="h-12 bg-gray-200 rounded"></div>
+      </div>
+    );
+  }
+
+  // If logged in, this component will auto-skip via useEffect
+  // This is a fallback in case auto-skip somehow doesn't fire
+  if (isLoggedIn) {
+    return (
+      <div className="max-w-2xl">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6 flex items-center gap-4">
+          <svg className="w-8 h-8 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <div>
+            <p className="font-semibold text-green-800">Data diri sudah terisi otomatis</p>
+            <p className="text-sm text-green-700">
+              Anda login sebagai <strong>{personalData.fullName}</strong> ({personalData.email})
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-between mt-8">
+          <button
+            onClick={handlePrevious}
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+          >
+            Sebelumnya
+          </button>
+          <button
+            onClick={() => setCurrentStep(4)}
+            className="px-6 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 font-medium transition-colors"
+          >
+            Selanjutnya
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl">

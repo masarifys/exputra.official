@@ -14,6 +14,25 @@ export async function PUT(
     const service = await prisma.service.update({
       where: { id },
       data: validated,
+      include: {
+        packages: true,
+      },
+    });
+
+    // Auto-sync default extension package prices to keep monthly extension options consistent.
+    await prisma.servicePackage.updateMany({
+      where: { serviceId: id, code: 'EXT_1M' },
+      data: { price: validated.price },
+    });
+
+    await prisma.servicePackage.updateMany({
+      where: { serviceId: id, code: 'EXT_2M' },
+      data: { price: Math.round(validated.price * 2) },
+    });
+
+    await prisma.servicePackage.updateMany({
+      where: { serviceId: id, code: 'EXT_3M' },
+      data: { price: Math.round(validated.price * 3) },
     });
 
     return NextResponse.json(service);

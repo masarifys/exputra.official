@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { FileText, DollarSign, AlertCircle, CheckCircle, Clock, CreditCard, Smartphone, Building2, X } from 'lucide-react';
+import { FileText, AlertCircle, CheckCircle, CreditCard, X, CheckCircle2, Printer } from 'lucide-react';
+import Image from 'next/image';
 
 interface Order {
     id: string;
@@ -29,27 +28,20 @@ interface PaymentMethod {
     duitkuCode: string;
 }
 
-const statusColors: Record<string, { bg: string; text: string; icon: string }> = {
-    PENDING: { bg: 'bg-orange-50 border-orange-200', text: 'text-orange-700', icon: '⏳' },
-    PAID: { bg: 'bg-green-50 border-green-200', text: 'text-green-700', icon: '✓' },
-    PROCESSING: { bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700', icon: '⚙' },
-    COMPLETED: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', icon: '✓✓' },
-    CANCELLED: { bg: 'bg-red-50 border-red-200', text: 'text-red-700', icon: '✕' },
+const statusColors: Record<string, { bg: string; text: string; icon: string; label: string }> = {
+    PENDING: { bg: 'bg-orange-50 border-orange-200', text: 'text-orange-700', icon: '⏳', label: 'Menunggu' },
+    PAID: { bg: 'bg-green-50 border-green-200', text: 'text-green-700', icon: '✓', label: 'Dibayar' },
+    PROCESSING: { bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700', icon: '⚙', label: 'Diproses' },
+    COMPLETED: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', icon: '', label: 'Lunas' },
+    CANCELLED: { bg: 'bg-red-50 border-red-200', text: 'text-red-700', icon: '✕', label: 'Dibatalkan' },
 };
 
 const paymentMethods: PaymentMethod[] = [
-    { id: 'va-bni', name: 'BNI Virtual Account', icon: '🏦', duitkuCode: 'I1' },
-    { id: 'va-bri', name: 'BRI Virtual Account', icon: '🏦', duitkuCode: 'BR' },
-    { id: 'va-mandiri', name: 'Mandiri Virtual Account', icon: '🏦', duitkuCode: 'M2' },
-    { id: 'qris-nobu', name: 'QRIS (Nobu Bank)', icon: '📲', duitkuCode: 'SP' },
+    { id: 'va-bni', name: 'BNI Virtual Account', icon: '/payment-icons/bni.png', duitkuCode: 'I1' },
+    { id: 'va-bri', name: 'BRI Virtual Account', icon: '/payment-icons/bri.png', duitkuCode: 'BR' },
+    { id: 'va-mandiri', name: 'Mandiri Virtual Account', icon: '/payment-icons/mandiri.png', duitkuCode: 'M2' },
+    { id: 'qris-nobu', name: 'QRIS (ALL BANK)', icon: '/payment-icons/qris.png', duitkuCode: 'SP' },
 ];
-
-const paymentMethodDisplay: Record<string, { label: string; icon: React.ReactNode }> = {
-    'va-bni': { label: '🏦 BNI Virtual Account', icon: <Building2 className="w-4 h-4" /> },
-    'va-bri': { label: '🏦 BRI Virtual Account', icon: <Building2 className="w-4 h-4" /> },
-    'va-mandiri': { label: '🏦 Mandiri Virtual Account', icon: <Building2 className="w-4 h-4" /> },
-    'qris-nobu': { label: '📲 QRIS (Nobu Bank)', icon: <Smartphone className="w-4 h-4" /> },
-};
 
 export default function MyInvoicesPage() {
     const [orders, setOrders] = useState<Order[]>([]);
@@ -77,7 +69,7 @@ export default function MyInvoicesPage() {
 
     const submitPayment = async () => {
         if (!paymentMethod) {
-            alert('Please select a payment method');
+            alert('Silakan pilih metode pembayaran');
             return;
         }
 
@@ -86,7 +78,7 @@ export default function MyInvoicesPage() {
             // Find the selected payment method to get duitkuCode
             const selectedMethod = paymentMethods.find(pm => pm.id === paymentMethod);
             if (!selectedMethod) {
-                alert('Invalid payment method');
+                alert('Metode pembayaran tidak valid');
                 setPaymentLoading(false);
                 return;
             }
@@ -138,8 +130,24 @@ export default function MyInvoicesPage() {
             
             if (!res.ok) {
                 const errorText = await res.text();
-                console.error('Payment API error response:', errorText);
-                alert('Payment API error: ' + (res.status === 500 ? 'Server error occurred' : res.statusText));
+                let errorJson: any = {};
+                try { errorJson = JSON.parse(errorText); } catch(e) {}
+
+                // Handle Bill Already Paid seamlessly for Localhost / no-webhook scenarios
+                const isAlreadyPaid = errorText.includes('Bill already paid') || errorJson?.error?.includes('Bill already paid') || errorJson?.details?.Message?.includes('Bill already paid');
+
+                if (isAlreadyPaid) {
+                    console.log('Payment API info:', 'Bill already paid, updating local state.');
+                    const updatedOrders = orders.map(o => o.id === selectedInvoice?.id ? { ...o, status: 'PAID' } : o);
+                    setOrders(updatedOrders);
+                    setShowPaymentModal(false);
+                    setSelectedInvoice(null);
+                    setPaymentMethod('');
+                    alert('✓ Invoice ternyata sudah terbayar pada Payment Gateway. Status berhasil disinkronisasi ke PAID!');
+                } else {
+                    console.error('Payment API error response:', errorText);
+                    alert('Terjadi error pada API pembayaran: ' + (errorJson.error || errorJson.message || res.statusText));
+                }
                 setPaymentLoading(false);
                 return;
             }
@@ -154,7 +162,7 @@ export default function MyInvoicesPage() {
                 setShowPaymentModal(false);
                 setSelectedInvoice(null);
                 setPaymentMethod('');
-                alert('✓ Payment gateway opened in new window. Complete payment there and you will be redirected.');
+                alert('✓ Gateway pembayaran dibuka di tab baru. Selesaikan pembayaran di sana lalu kembali cek status invoice.');
             } else if (result.error?.includes('Bill already paid') || result.details?.Message?.includes('Bill already paid')) {
                 // Bill already paid - update local status
                 const updatedOrders = orders.map(o =>
@@ -164,19 +172,19 @@ export default function MyInvoicesPage() {
                 setShowPaymentModal(false);
                 setSelectedInvoice(null);
                 setPaymentMethod('');
-                alert('✓ Invoice already paid! Status updated.');
+                alert('✓ Invoice sudah terbayar. Status berhasil diperbarui.');
             } else {
-                alert(result.error || result.message || 'Failed to process payment');
+                alert(result.error || result.message || 'Gagal memproses pembayaran');
                 setPaymentLoading(false);
             }
         } catch (error) {
             console.error('Payment error:', error);
-            alert('Failed to process payment: ' + (error instanceof Error ? error.message : 'Unknown error'));
+            alert('Gagal memproses pembayaran: ' + (error instanceof Error ? error.message : 'Terjadi kesalahan tidak dikenal'));
             setPaymentLoading(false);
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading invoices...</div>;
+    if (loading) return <div className="p-8 text-center text-gray-500">Memuat invoice...</div>;
 
     const pendingInvoices = orders.filter(o => o.status === 'PENDING');
 
@@ -189,7 +197,7 @@ export default function MyInvoicesPage() {
                         <FileText className="w-8 h-8 text-blue-600" />
                         Invoices
                     </h1>
-                    <p className="text-gray-600 mt-2">Manage your payments and billing history</p>
+                    <p className="text-gray-600 mt-2">Kelola pembayaran dan riwayat tagihan Anda</p>
                 </div>
             </div>
 
@@ -201,16 +209,16 @@ export default function MyInvoicesPage() {
                             <AlertCircle className="w-6 h-6 text-orange-600" />
                         </div>
                         <div className="flex-1">
-                            <h3 className="font-bold text-orange-900 text-lg">Pending Payments</h3>
+                            <h3 className="font-bold text-orange-900 text-lg">Pembayaran Tertunda</h3>
                             <p className="text-sm text-orange-800 mt-2">
-                                You have <span className="font-bold">{pendingInvoices.length}</span> invoice(s) awaiting payment:
+                                Anda memiliki <span className="font-bold">{pendingInvoices.length}</span> invoice yang menunggu pembayaran:
                             </p>
                             <div className="mt-4 space-y-3">
                                 {pendingInvoices.map(invoice => (
                                     <div key={invoice.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white p-5 rounded-lg border border-orange-200 shadow-sm gap-4">
                                         <div className="flex items-center gap-4 flex-1 min-w-0">
                                             <div className="p-3 bg-orange-100 rounded-lg flex-shrink-0">
-                                                <DollarSign className="w-5 h-5 text-orange-600" />
+                                                <FileText className="w-5 h-5 text-orange-600" />
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-sm text-gray-600">Invoice {invoice.invoiceId}</p>
@@ -222,12 +230,20 @@ export default function MyInvoicesPage() {
                                                 <p className="text-sm text-gray-600 sm:hidden">Amount</p>
                                                 <p className="text-xl sm:text-lg font-bold text-orange-600">IDR {invoice.total.toLocaleString()}</p>
                                             </div>
-                                            <button
-                                                onClick={() => handlePayment(invoice)}
-                                                className="flex-1 sm:flex-none px-5 sm:px-6 py-2.5 sm:py-2 bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 active:scale-95 transition-all shadow-md whitespace-nowrap"
-                                            >
-                                                Pay Now →
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => window.open(`/client/dashboard/invoices/${invoice.invoiceId}/print`, '_blank')}
+                                                    className="flex-1 sm:flex-none px-4 sm:px-4 py-2.5 sm:py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200 active:scale-95 transition-all shadow-sm whitespace-nowrap"
+                                                >
+                                                    <Printer className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handlePayment(invoice)}
+                                                    className="flex-1 sm:flex-none px-5 sm:px-6 py-2.5 sm:py-2 bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 active:scale-95 transition-all shadow-md whitespace-nowrap"
+                                                >
+                                                    Pay Now →
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -243,7 +259,7 @@ export default function MyInvoicesPage() {
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-6">
                     <h2 className="font-bold text-gray-900 flex items-center gap-2">
                         <FileText className="w-5 h-5 text-blue-600" />
-                        All Invoices
+                        Semua Invoice
                     </h2>
                 </div>
 
@@ -252,11 +268,11 @@ export default function MyInvoicesPage() {
                         <thead className="bg-gray-50 border-b border-gray-100">
                             <tr>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Invoice ID</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Description</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Amount</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Tanggal</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Deskripsi</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Total</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Action</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -265,7 +281,7 @@ export default function MyInvoicesPage() {
                                     <td colSpan={6} className="px-6 py-12 text-center">
                                         <div className="flex flex-col items-center">
                                             <FileText className="w-12 h-12 text-gray-300 mb-4" />
-                                            <p className="text-gray-500 font-medium">No invoices found</p>
+                                            <p className="text-gray-500 font-medium">Belum ada invoice</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -293,24 +309,27 @@ export default function MyInvoicesPage() {
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${statusColors[order.status]?.bg} ${statusColors[order.status]?.text} border`}>
                                                 <span>{statusColors[order.status]?.icon}</span>
-                                                {order.status}
+                                                {statusColors[order.status]?.label || order.status}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            {order.status === 'PENDING' ? (
+                                            <div className="flex gap-2">
+                                                {order.status === 'PENDING' && (
+                                                    <button
+                                                        onClick={() => handlePayment(order)}
+                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 transition-all shadow-md"
+                                                    >
+                                                        PAY NOW
+                                                    </button>
+                                                )}
                                                 <button
-                                                    onClick={() => handlePayment(order)}
-                                                    className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 transition-all shadow-md"
+                                                    onClick={() => window.open(`/client/dashboard/invoices/${order.invoiceId}/print`, '_blank')}
+                                                    className="inline-flex items-center bg-gray-100 p-2 text-gray-600 rounded-lg hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                    title="Print / View PDF"
                                                 >
-                                                    <DollarSign className="w-4 h-4" />
-                                                    PAY NOW
+                                                    <Printer className="w-4 h-4" />
                                                 </button>
-                                            ) : (
-                                                <button disabled className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold cursor-not-allowed">
-                                                    <CheckCircle className="w-4 h-4" />
-                                                    COMPLETED
-                                                </button>
-                                            )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -325,7 +344,7 @@ export default function MyInvoicesPage() {
                 {orders.length === 0 ? (
                     <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
                         <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                        <p className="text-gray-500 font-medium">No invoices found</p>
+                        <p className="text-gray-500 font-medium">Belum ada invoice</p>
                     </div>
                 ) : (
                     orders.map(order => {
@@ -340,7 +359,7 @@ export default function MyInvoicesPage() {
                                     </div>
                                     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex-shrink-0 ${statusColor?.bg} border`}>
                                         <span>{statusColor?.icon}</span>
-                                        {order.status}
+                                        {statusColor?.label || order.status}
                                     </span>
                                 </div>
 
@@ -371,20 +390,23 @@ export default function MyInvoicesPage() {
                                     </div>
 
                                     {/* Action Button */}
-                                    {order.status === 'PENDING' ? (
+                                    <div className="flex gap-2 mt-4">
                                         <button
-                                            onClick={() => handlePayment(order)}
-                                            className="w-full mt-4 px-4 py-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-all shadow-md flex items-center justify-center gap-2"
+                                            onClick={() => window.open(`/client/dashboard/invoices/${order.invoiceId}/print`, '_blank')}
+                                            className="px-4 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold hover:bg-gray-200 transition-all shadow-sm flex-shrink-0"
                                         >
-                                            <DollarSign className="w-5 h-5" />
-                                            PAY NOW
+                                            <Printer className="w-5 h-5 flex m-auto" />
                                         </button>
-                                    ) : (
-                                        <button disabled className="w-full mt-4 px-4 py-3 bg-gray-200 text-gray-600 rounded-lg font-bold cursor-not-allowed flex items-center justify-center gap-2">
-                                            <CheckCircle className="w-5 h-5" />
-                                            COMPLETED
-                                        </button>
-                                    )}
+                                        
+                                        {order.status === 'PENDING' && (
+                                            <button
+                                                onClick={() => handlePayment(order)}
+                                                className="w-full px-4 py-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-all shadow-md flex items-center justify-center gap-2"
+                                            >
+                                                PAY NOW
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -400,7 +422,7 @@ export default function MyInvoicesPage() {
                         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex items-center justify-between rounded-t-xl sticky top-0 z-10">
                             <div className="flex items-center gap-3">
                                 <CreditCard className="w-6 h-6" />
-                                <h2 className="text-xl font-bold">Payment Confirmation</h2>
+                                <h2 className="text-xl font-bold">Konfirmasi Pembayaran</h2>
                             </div>
                             <button
                                 onClick={() => setShowPaymentModal(false)}
@@ -415,7 +437,7 @@ export default function MyInvoicesPage() {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 {/* Left Column - Invoice Details */}
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Invoice Details</h3>
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Detail Invoice</h3>
                                     
                                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                                         <p className="text-xs text-blue-600 font-semibold uppercase">Invoice ID</p>
@@ -428,36 +450,62 @@ export default function MyInvoicesPage() {
                                     </div>
 
                                     <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                                        <p className="text-xs text-orange-600 font-semibold uppercase">Total Amount</p>
+                                        <p className="text-xs text-orange-600 font-semibold uppercase">Total Pembayaran</p>
                                         <p className="text-3xl font-bold text-orange-600 mt-1">IDR {selectedInvoice.total.toLocaleString()}</p>
                                     </div>
                                 </div>
 
                                 {/* Right Column - Payment Methods */}
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Select Payment Method</h3>
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Pilih Metode Pembayaran</h3>
                                     <div className="space-y-3">
                                         {paymentMethods.map((method) => (
-                                            <label
+                                            <div
                                                 key={method.id}
-                                                className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                                                onClick={() => setPaymentMethod(method.id)}
+                                                className={`border-2 rounded-xl p-3 sm:p-4 cursor-pointer transition-all duration-200 flex items-center justify-between ${
                                                     paymentMethod === method.id
-                                                        ? 'border-blue-500 bg-blue-50'
-                                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                        ? 'border-cyan-500 bg-cyan-50 shadow-sm'
+                                                        : 'border-gray-200 hover:border-cyan-300 hover:bg-gray-50'
                                                 }`}
                                             >
-                                                <input
-                                                    type="radio"
-                                                    name="paymentMethod"
-                                                    value={method.id}
-                                                    checked={paymentMethod === method.id}
-                                                    onChange={(e) => setPaymentMethod(e.target.value)}
-                                                    className="w-5 h-5 text-blue-600 cursor-pointer"
-                                                />
-                                                <span className={`font-medium text-base ${paymentMethod === method.id ? 'text-blue-700' : 'text-gray-700'}`}>
-                                                    {method.icon} {method.name}
-                                                </span>
-                                            </label>
+                                                <div className="flex items-center gap-2 sm:gap-3">
+                                                    <div
+                                                        className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg border flex items-center justify-center overflow-hidden transition-colors ${
+                                                            paymentMethod === method.id
+                                                                ? 'bg-white border-cyan-200'
+                                                                : 'bg-gray-50 border-gray-200'
+                                                        }`}
+                                                    >
+                                                        <Image
+                                                            src={method.icon}
+                                                            alt={method.name}
+                                                            width={34}
+                                                            height={34}
+                                                            className="w-8 h-8 sm:w-[34px] sm:h-[34px] object-contain"
+                                                        />
+                                                    </div>
+                                                    <span className="font-medium text-gray-900 text-sm sm:text-base">{method.name}</span>
+                                                </div>
+
+                                                {paymentMethod === method.id ? (
+                                                    <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-cyan-600" />
+                                                ) : (
+                                                    <svg
+                                                        className="w-5 h-5 flex-shrink-0 text-gray-400"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            strokeWidth={2}
+                                                            d="M9 5l7 7-7 7"
+                                                        />
+                                                    </svg>
+                                                )}
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
@@ -470,7 +518,7 @@ export default function MyInvoicesPage() {
                                     onClick={() => setShowPaymentModal(false)}
                                     className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-bold transition-colors text-base"
                                 >
-                                    Cancel
+                                    Batal
                                 </button>
                                 <button
                                     onClick={submitPayment}
@@ -480,7 +528,7 @@ export default function MyInvoicesPage() {
                                     {paymentLoading ? (
                                         <>
                                             <span className="animate-spin">⚙</span>
-                                            Processing...
+                                            Memproses...
                                         </>
                                     ) : (
                                         <>

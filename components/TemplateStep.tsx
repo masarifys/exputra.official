@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useOrderStore } from '@/store/useOrderStore';
 import { Template } from '@/types';
 
+let _isLoggedInCache: boolean | null = null;
+
 interface TemplateFromDB {
   id: string;
   name: string;
@@ -76,6 +78,28 @@ export default function TemplateStep() {
   const selectedTemplate = useOrderStore((state) => state.selectedTemplate);
   const setSelectedTemplate = useOrderStore((state) => state.setSelectedTemplate);
   const setCurrentStep = useOrderStore((state) => state.setCurrentStep);
+  const setPersonalData = useOrderStore((state) => state.setPersonalData);
+  const [isLoggedIn, setIsLoggedIn] = useState(_isLoggedInCache ?? false);
+
+  useEffect(() => {
+    if (_isLoggedInCache !== null) {
+      setIsLoggedIn(_isLoggedInCache);
+      return;
+    }
+    fetch('/api/client/profile')
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error('not logged in');
+      })
+      .then((data) => {
+        if (data.name && data.email && data.phone) {
+          _isLoggedInCache = true;
+          setIsLoggedIn(true);
+          setPersonalData({ fullName: data.name, email: data.email, phone: data.phone });
+        }
+      })
+      .catch(() => { _isLoggedInCache = false; });
+  }, []);
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -129,7 +153,7 @@ export default function TemplateStep() {
 
   const handleNext = () => {
     if (selectedTemplate) {
-      setCurrentStep(3);
+      setCurrentStep(isLoggedIn ? 4 : 3);
     }
   };
 

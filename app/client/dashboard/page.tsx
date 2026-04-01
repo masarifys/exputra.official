@@ -21,14 +21,23 @@ interface Order {
   total: number;
   status: string;
   createdAt: string;
-  domain: { extension: string };
-  template: { name: string };
-  package?: { name: string; duration: number } | null;
+  domain?: { extension: string } | null;
+  template?: { name: string } | null;
+  package?: { name: string; duration?: number | null } | null;
   websiteUsername?: string;
   websitePassword?: string;
   loginUrl?: string;
   websiteEmail?: string;
   notes?: string;
+  progressNotes?: string | null;
+  etaLabel?: string | null;
+  serviceFlow?: boolean;
+  service?: {
+    id: string;
+    name: string;
+    description?: string | null;
+    priceType?: 'ONE_TIME' | 'PER_YEAR' | 'MONTHLY';
+  } | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -53,6 +62,12 @@ const statusDescriptions: Record<string, string> = {
   PROCESSING: 'Tim kami sedang mengerjakan website Anda',
   COMPLETED: 'Website Anda sudah selesai dan siap digunakan',
   CANCELLED: 'Pesanan dibatalkan',
+};
+
+const servicePriceTypeLabels: Record<string, string> = {
+  ONE_TIME: 'Sekali Bayar',
+  PER_YEAR: 'Per Tahun',
+  MONTHLY: 'Per Bulan',
 };
 
 export default function ClientDashboardPage() {
@@ -115,9 +130,32 @@ export default function ClientDashboardPage() {
     const query = searchQuery.toLowerCase();
     return orders.filter(order =>
       order.domainName.toLowerCase().includes(query) ||
-      order.invoiceId.toLowerCase().includes(query)
+      order.invoiceId.toLowerCase().includes(query) ||
+      (order.package?.name || '').toLowerCase().includes(query)
     );
   }, [orders, searchQuery]);
+
+  const filteredWebsiteOrders = useMemo(
+    () => filteredOrders.filter((order) => !order.serviceFlow),
+    [filteredOrders]
+  );
+
+  const paymentInfoOrders = useMemo(
+    () =>
+      filteredWebsiteOrders.map((order) => ({
+        ...order,
+        domain: {
+          extension: order.domain?.extension || '',
+        },
+        package: order.package
+          ? {
+              name: order.package.name,
+              duration: Number(order.package.duration || 1),
+            }
+          : null,
+      })),
+    [filteredWebsiteOrders]
+  );
 
   if (loading) {
     return (
@@ -161,18 +199,18 @@ export default function ClientDashboardPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Subscription Summary Cards */}
-        {orders.length > 0 && (
-          <SubscriptionSummary orders={orders} />
+        {filteredWebsiteOrders.length > 0 && (
+          <SubscriptionSummary orders={filteredWebsiteOrders as any} />
         )}
 
         {/* Payment Info Cards for Latest Orders */}
-        {filteredOrders.length > 0 && (
+        {filteredWebsiteOrders.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <DollarSign className="w-6 h-6 text-blue-600" />
               Status Pembayaran & Pesanan
             </h2>
-            {filteredOrders.map((order) => (
+            {paymentInfoOrders.map((order) => (
               <PaymentInfoCard key={order.id} order={order} />
             ))}
           </div>
@@ -209,7 +247,7 @@ export default function ClientDashboardPage() {
                         </div>
                         <div className="flex-1">
                           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                            {order.domainName}{order.domain?.extension}
+                            {order.domainName}{order.domain?.extension || ''}
                             <Badge variant={statusColors[order.status] as any || 'default'} className="ml-2">
                               {statusLabels[order.status]}
                             </Badge>
@@ -221,10 +259,12 @@ export default function ClientDashboardPage() {
                                   <Package className="w-4 h-4 text-blue-600" />
                                   <span>{order.package.name}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-gray-600">
-                                  <Calendar className="w-4 h-4 text-blue-600" />
-                                  <span>{order.package.duration} Tahun</span>
-                                </div>
+                                {order.package.duration ? (
+                                  <div className="flex items-center gap-2 text-gray-600">
+                                    <Calendar className="w-4 h-4 text-blue-600" />
+                                    <span>{order.package.duration} Tahun</span>
+                                  </div>
+                                ) : null}
                               </>
                             )}
                             {!order.package && (
@@ -233,10 +273,28 @@ export default function ClientDashboardPage() {
                                 <span className="text-gray-500 italic">Hanya Layanan</span>
                               </div>
                             )}
+                            {order.serviceFlow && order.etaLabel ? (
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <Clock className="w-4 h-4 text-blue-600" />
+                                <span>Estimasi: {order.etaLabel}</span>
+                              </div>
+                            ) : null}
+                            {order.serviceFlow && order.service?.priceType ? (
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                                  {servicePriceTypeLabels[order.service.priceType] || order.service.priceType}
+                                </span>
+                              </div>
+                            ) : null}
                             <div className="flex items-center gap-2 text-gray-600">
                               <span className="text-xs bg-gray-100 px-2 py-1 rounded">#{order.invoiceId}</span>
                             </div>
                           </div>
+                          {order.progressNotes ? (
+                            <p className="mt-3 text-xs text-cyan-700 bg-cyan-50 border border-cyan-200 rounded px-2 py-1 inline-block">
+                              Catatan Tim: {order.progressNotes}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -339,7 +397,7 @@ export default function ClientDashboardPage() {
                   <p className="text-xs text-gray-600 font-semibold uppercase mb-2">Domain</p>
                   <p className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <Globe className="w-5 h-5 text-blue-600" />
-                    {selectedOrder.domainName}{selectedOrder.domain?.extension}
+                    {selectedOrder.domainName}{selectedOrder.domain?.extension || ''}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -361,7 +419,7 @@ export default function ClientDashboardPage() {
                     )}
                   </p>
                 </div>
-                {selectedOrder.package && (
+                {selectedOrder.package?.duration && (
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-xs text-gray-600 font-semibold uppercase mb-2">Durasi</p>
                     <p className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -370,6 +428,15 @@ export default function ClientDashboardPage() {
                     </p>
                   </div>
                 )}
+                {selectedOrder.serviceFlow && selectedOrder.etaLabel ? (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs text-gray-600 font-semibold uppercase mb-2">Estimasi</p>
+                    <p className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-blue-600" />
+                      {selectedOrder.etaLabel}
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               {/* Notes Section - Show when available */}
@@ -382,6 +449,16 @@ export default function ClientDashboardPage() {
                   <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">{selectedOrder.notes}</p>
                 </div>
               )}
+
+              {selectedOrder.progressNotes ? (
+                <div className="bg-cyan-50 rounded-lg p-6 border border-cyan-200">
+                  <h3 className="text-sm font-semibold text-gray-700 uppercase mb-3 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-cyan-600" />
+                    Catatan Progress Tim
+                  </h3>
+                  <p className="text-sm text-cyan-800 whitespace-pre-wrap">{selectedOrder.progressNotes}</p>
+                </div>
+              ) : null}
 
               {/* Login Credentials Section - Show when available */}
               {(selectedOrder.loginUrl || selectedOrder.websiteUsername || selectedOrder.websitePassword || selectedOrder.websiteEmail) && (

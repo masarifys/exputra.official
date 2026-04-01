@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const nextPath = String(searchParams.get('next') || '/client/dashboard').trim();
     const { email, phone } = await request.json();
 
     if (!email || !phone) {
@@ -19,15 +22,31 @@ export async function POST(request: NextRequest) {
     });
 
     if (customer) {
-      // If customer exists, verify phone matches
-      if (customer.phone !== phone) {
+      if (customer.status === 'INACTIVE') {
         return NextResponse.json(
-          { message: 'Nomor HP tidak sesuai dengan email yang terdaftar' },
+          { message: 'Akun Anda telah dinonaktifkan (banned). Silakan hubungi tim Admin.' },
+          { status: 403 }
+        );
+      }
+      
+      // If customer exists, verify credentials
+      let isVerified = false;
+      if (customer.password) {
+        // If password is set via reset, use bcrypt
+        isVerified = await bcrypt.compare(phone, customer.password);
+      } else {
+        // Fallback: use phone number as password (legacy behavior)
+        isVerified = customer.phone === phone;
+      }
+
+      if (!isVerified) {
+        return NextResponse.json(
+          { message: 'Email atau password tidak sesuai' },
           { status: 401 }
         );
       }
     } else {
-      // 2. Fallback: Check Orders (for first time login or legacy support)
+      // 2. Fallback: Check website orders (legacy support)
       const orders = await prisma.order.findMany({
         where: {
           customerEmail: email.toLowerCase(),
@@ -38,19 +57,32 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      if (orders.length === 0) {
+      // 3. Fallback: Check service orders (service-only checkout)
+      const serviceOrders = orders.length > 0
+        ? []
+        : await prisma.serviceOrder.findMany({
+            where: {
+              customerEmail: email.toLowerCase(),
+              customerPhone: phone,
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+
+      if (orders.length === 0 && serviceOrders.length === 0) {
         return NextResponse.json(
           { message: 'Email atau nomor HP tidak ditemukan' },
           { status: 401 }
         );
       }
 
+      const latestName = orders[0]?.customerName || serviceOrders[0]?.customerName || 'Client';
+
       // Create new customer from Order data
       customer = await prisma.customer.create({
         data: {
           email: email.toLowerCase(),
           phone: phone,
-          name: orders[0].customerName,
+          name: latestName,
         },
       });
     }
@@ -70,6 +102,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      nextPath,
       customer: {
         id: customer.id,
         name: customer.name,
