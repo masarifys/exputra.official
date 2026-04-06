@@ -434,21 +434,6 @@ function SummaryModal({ onClose, selectedDuration }: { onClose: () => void; sele
   };
 
   const templatePrice = selectedTemplate?.price || 0;
-  
-  // Calculate package price based on selected duration
-  let packagePrice = 0;
-  if (selectedPackage) {
-    if (selectedDuration === 1) {
-      packagePrice = (selectedPackage as any).price1Year || selectedPackage.price;
-    } else if (selectedDuration === 2) {
-      packagePrice = (selectedPackage as any).price2Year || selectedPackage.price * 2;
-    } else {
-      packagePrice = (selectedPackage as any).price3Year || selectedPackage.price * 3;
-    }
-  }
-  
-  const subtotal = (selectedDomain?.price || 0) + templatePrice + packagePrice +
-    selectedAddOns.reduce((sum, addon) => sum + addon.price, 0);
 
   // Calculate actual total within component for display consistency (or rely on store's getTotalPrice)
   // But store's getTotalPrice already has logic.
@@ -456,6 +441,13 @@ function SummaryModal({ onClose, selectedDuration }: { onClose: () => void; sele
   const isFreeDomain = selectedDomain && selectedPackage?.freeDomains?.some(
     (fd) => selectedDomain.extension === fd.extension || selectedDomain.extension.endsWith(fd.extension)
   );
+
+  const domainPrice = isFreeDomain ? 0 : (selectedDomain?.price || 0);
+  const packagePrice = selectedPackage?.price || 0;
+  const packageDuration = selectedPackage?.duration || selectedDuration;
+
+  const subtotal = domainPrice + templatePrice + packagePrice +
+    selectedAddOns.reduce((sum, addon) => sum + addon.price, 0);
 
   const discount = promoCode
     ? promoCode.type === 'percentage'
@@ -500,7 +492,7 @@ function SummaryModal({ onClose, selectedDuration }: { onClose: () => void; sele
             </span>
           </div>
           <div className="text-sm text-gray-500">
-            {selectedPackage?.name} - {selectedDuration} Tahun
+            {selectedPackage?.name} - {packageDuration} Tahun
           </div>
           {selectedPackage && (() => {
             const features = selectedPackage && 'features' in selectedPackage 

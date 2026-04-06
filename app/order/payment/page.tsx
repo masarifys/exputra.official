@@ -180,7 +180,12 @@ export default function PaymentPage() {
   }, [expiryTime]);
 
   const templatePrice = selectedTemplate?.price || 0;
-  const subtotal = (selectedDomain?.price || 0) + templatePrice + (selectedPackage?.price || 0) + 
+  const isFreeDomain = selectedDomain && selectedPackage?.freeDomains?.some(
+    (fd) => selectedDomain.extension === fd.extension || selectedDomain.extension.endsWith(fd.extension)
+  );
+  const domainPrice = isFreeDomain ? 0 : (selectedDomain?.price || 0);
+
+  const subtotal = domainPrice + templatePrice + (selectedPackage?.price || 0) + 
     selectedAddOns.reduce((sum, addon) => sum + addon.price, 0);
 
   const discount = promoCode 
@@ -518,9 +523,13 @@ export default function PaymentPage() {
                 <p className="text-xs sm:text-sm text-gray-600 break-all">
                   {domainSearch}{selectedDomain?.extension}
                 </p>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                  IDR {(selectedDomain?.price || 0).toLocaleString('id-ID')}
-                </p>
+                {isFreeDomain ? (
+                  <p className="text-xs sm:text-sm text-green-600 mt-1">Gratis (Paket)</p>
+                ) : (
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                    IDR {(selectedDomain?.price || 0).toLocaleString('id-ID')}
+                  </p>
+                )}
               </div>
 
               {selectedTemplate && (
