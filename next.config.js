@@ -21,6 +21,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'exputra.id',
       },
+      // ✅ TAMBAHKAN INI
+      {
+        protocol: 'https',
+        hostname: 'static.wikitide.net',
+      },
     ],
   },
   
