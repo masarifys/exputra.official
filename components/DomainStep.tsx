@@ -218,7 +218,7 @@ export default function DomainStep() {
         <h3 className="font-semibold text-gray-900 mb-2">📌 Cara Memilih Domain untuk Usaha:</h3>
         <ul className="text-sm text-gray-700 space-y-2">
           <li><strong>1. Gunakan nama bisnis Anda</strong> - Pilih domain yang sesuai dengan nama usaha agar mudah diingat pelanggan.</li>
-          <li><strong>2. Pilih ekstensi yang tepat</strong> - Gunakan .com untuk bisnis umum, .co.id untuk bisnis Indonesia, atau .id untuk identitas Indonesia.</li>
+          <li><strong>2. Pilih ekstensi yang tepat</strong> - Anda bebas memilih ekstensi domain apa pun yang tersedia sesuai dengan keinginan dan kebutuhan bisnis Anda.</li>
           <li><strong>3. Buat singkat dan mudah dieja</strong> - Hindari angka dan tanda hubung agar tidak membingungkan.</li>
           <li><strong>4. Cek ketersediaan</strong> - Ketik nama domain yang diinginkan di kolom pencarian di bawah, lalu klik "Cari Domain".</li>
         </ul>
