@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, Link2, Loader2, Wallet, Upload, ShieldCheck, CheckCircle, X } from 'lucide-react';
+import { Copy, Link2, Loader2, Wallet, Upload, ShieldCheck, CheckCircle, X, Clock } from 'lucide-react';
 
 type AffiliatePackage = {
   id: string;
@@ -74,10 +74,22 @@ type AffiliatePayout = {
   paidAt?: string | null;
 };
 
+type OrderProgress = {
+  id: string;
+  invoiceId: string;
+  itemName: string;
+  customerName: string;
+  status: 'PENDING' | 'PAID' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED';
+  total: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type AffiliateResponse = {
   packages: AffiliatePackage[];
   servicePackages: AffiliateServicePackage[];
   links: AffiliateLink[];
+  orderProgress?: OrderProgress[];
   syncInfo?: {
     packageCount: number;
     servicePackageCount: number;
@@ -102,7 +114,7 @@ type AffiliateActivationResponse = {
 };
 
 export default function ClientAffiliatePage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'links' | 'payouts' | 'rekening'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'links' | 'progress' | 'payouts' | 'rekening'>('overview');
   const [activationLoading, setActivationLoading] = useState(true);
   const [requestingActivation, setRequestingActivation] = useState(false);
   const [isAffiliateActive, setIsAffiliateActive] = useState(false);
@@ -111,6 +123,7 @@ export default function ClientAffiliatePage() {
   const [packages, setPackages] = useState<AffiliatePackage[]>([]);
   const [servicePackages, setServicePackages] = useState<AffiliateServicePackage[]>([]);
   const [links, setLinks] = useState<AffiliateLink[]>([]);
+  const [orderProgress, setOrderProgress] = useState<OrderProgress[]>([]);
   const [wallet, setWallet] = useState<AffiliateWallet>({
     totalCommission: 0,
     reservedBalance: 0,
@@ -197,6 +210,7 @@ export default function ClientAffiliatePage() {
       setPackages(typed.packages || []);
       setServicePackages(typed.servicePackages || []);
       setLinks(typed.links || []);
+      setOrderProgress(typed.orderProgress || []);
       setWallet(
         typed.wallet || {
           totalCommission: 0,
@@ -524,12 +538,13 @@ export default function ClientAffiliatePage() {
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'links', label: 'Link Affiliate' },
+          { id: 'progress', label: 'Progress Pesanan' },
           { id: 'payouts', label: 'Payout' },
           { id: 'rekening', label: 'Rekening' },
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as 'overview' | 'links' | 'payouts' | 'rekening')}
+            onClick={() => setActiveTab(tab.id as 'overview' | 'links' | 'progress' | 'payouts' | 'rekening')}
             className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
               activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
             }`}
@@ -731,6 +746,95 @@ export default function ClientAffiliatePage() {
             )}
           </div>
         </>
+      ) : null}
+
+      {activeTab === 'progress' ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="text-lg font-bold text-gray-900">Progress Pesanan</h2>
+          <p className="text-sm text-gray-600 mt-1">Pantau status pesanan dari customer yang mendaftar melalui link affiliate Anda.</p>
+
+          {orderProgress.length === 0 ? (
+            <p className="text-sm text-gray-500 mt-4">Belum ada pesanan dari link affiliate Anda.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              {orderProgress.map((order) => {
+                const maskText = (text: string) => {
+                  if (!text) return '';
+                  if (text.length <= 3) return text[0] + '***';
+                  return text.substring(0, 3) + '***' + text.substring(text.length - 2);
+                };
+
+                let progressPercent = 0;
+                let statusBadge = { label: 'Menunggu', color: 'bg-gray-100 text-gray-700' };
+
+                switch (order.status) {
+                  case 'PENDING':
+                    progressPercent = 10;
+                    statusBadge = { label: 'Menunggu', color: 'bg-gray-100 text-gray-700' };
+                    break;
+                  case 'PAID':
+                    progressPercent = 25;
+                    statusBadge = { label: 'Dibayar', color: 'bg-blue-100 text-blue-700' };
+                    break;
+                  case 'PROCESSING':
+                    progressPercent = 60;
+                    statusBadge = { label: 'Diproses', color: 'bg-amber-100 text-amber-700' };
+                    break;
+                  case 'COMPLETED':
+                    progressPercent = 100;
+                    statusBadge = { label: 'Selesai', color: 'bg-green-100 text-green-700' };
+                    break;
+                  case 'CANCELLED':
+                    progressPercent = 0;
+                    statusBadge = { label: 'Dibatalkan', color: 'bg-red-100 text-red-700' };
+                    break;
+                }
+
+                const date = new Date(order.createdAt);
+                const diffMs = new Date().getTime() - date.getTime();
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                const relativeTime = diffDays === 0 ? 'Hari ini' : `${diffDays} hari yang lalu`;
+                
+                return (
+                  <div key={order.id} className="rounded-lg border border-gray-200 p-4 relative">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-base">{maskText(order.itemName)}</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">{order.invoiceId}</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${statusBadge.color}`}>
+                        {statusBadge.label}
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm font-semibold text-gray-800 mt-3">{maskText(order.customerName)}</p>
+
+                    <div className="mt-4">
+                      <div className="flex justify-between text-xs font-semibold mb-1">
+                        <span className="text-gray-500">Progress</span>
+                        <span className="text-gray-900">{progressPercent}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div 
+                          className={`h-1.5 rounded-full ${order.status === 'COMPLETED' ? 'bg-green-500' : 'bg-blue-500'}`} 
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{relativeTime}</span>
+                      </div>
+                      <span>{date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       ) : null}
 
       {activeTab === 'payouts' ? (

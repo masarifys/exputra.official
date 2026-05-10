@@ -31,7 +31,7 @@ async function getAvailableAffiliateBalance(customerId: string): Promise<number>
           },
         },
         orders: {
-          where: { status: 'PAID' },
+          where: { status: 'COMPLETED' },
           select: { total: true },
         },
       },
@@ -45,7 +45,7 @@ async function getAvailableAffiliateBalance(customerId: string): Promise<number>
           },
         },
         serviceOrders: {
-          where: { status: 'PAID' },
+          where: { status: 'COMPLETED' },
           select: { total: true },
         },
       },

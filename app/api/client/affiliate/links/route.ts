@@ -83,8 +83,8 @@ export async function GET(request: NextRequest) {
             select: { visits: true, orders: true },
           },
           orders: {
-            where: { status: 'PAID' },
-            select: { total: true },
+            where: { status: { in: ['PENDING', 'PAID', 'PROCESSING', 'COMPLETED'] } },
+            select: { id: true, invoiceId: true, domainName: true, customerName: true, total: true, status: true, createdAt: true, updatedAt: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -105,8 +105,8 @@ export async function GET(request: NextRequest) {
             },
           },
           serviceOrders: {
-            where: { status: 'PAID' },
-            select: { total: true },
+            where: { status: { in: ['PENDING', 'PAID', 'PROCESSING', 'COMPLETED'] } },
+            select: { id: true, invoiceId: true, packageName: true, customerName: true, total: true, status: true, createdAt: true, updatedAt: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -174,14 +174,21 @@ export async function GET(request: NextRequest) {
     });
 
     const packageLinkItems = links.map((link: (typeof links)[number]) => {
-      const paidOrders = link.orders.length;
-      const revenue = link.orders.reduce((sum: number, item: { total: number }) => sum + item.total, 0);
+      const paidOrders = link.orders.filter((o: any) => ['PAID', 'PROCESSING', 'COMPLETED'].includes(o.status)).length;
+      const revenue = link.orders
+        .filter((o: any) => ['PAID', 'PROCESSING', 'COMPLETED'].includes(o.status))
+        .reduce((sum: number, item: { total: number, status: string }) => sum + item.total, 0);
+      const completedRevenue = link.orders
+        .filter((o: any) => o.status === 'COMPLETED')
+        .reduce((sum: number, item: { total: number }) => sum + item.total, 0);
+
       const appliedCommissionPercent = getCommissionPercentByTarget({
         defaultPercent: commissionPercent,
         config: parsedConfig,
         packageId: link.packageId,
       });
       const commission = Math.round((revenue * appliedCommissionPercent) / 100);
+      const completedCommission = Math.round((completedRevenue * appliedCommissionPercent) / 100);
 
       return {
         id: link.id,
@@ -197,21 +204,39 @@ export async function GET(request: NextRequest) {
         paidOrders,
         revenue,
         commission,
+        completedCommission,
         commissionPercent: appliedCommissionPercent,
         createdAt: link.createdAt,
         shareUrl: `${baseUrl}/order?aff=${encodeURIComponent(link.code)}&pkg=${encodeURIComponent(link.packageId)}`,
+        orderProgress: link.orders.map((o: any) => ({
+          id: o.id,
+          invoiceId: o.invoiceId,
+          itemName: o.domainName || link.package.name,
+          customerName: o.customerName,
+          status: o.status,
+          total: o.total,
+          createdAt: o.createdAt,
+          updatedAt: o.updatedAt,
+        })),
       };
     });
 
     const serviceLinkItems = serviceLinks.map((link: (typeof serviceLinks)[number]) => {
-      const paidOrders = link.serviceOrders.length;
-      const revenue = link.serviceOrders.reduce((sum: number, item: { total: number }) => sum + item.total, 0);
+      const paidOrders = link.serviceOrders.filter((o: any) => ['PAID', 'PROCESSING', 'COMPLETED'].includes(o.status)).length;
+      const revenue = link.serviceOrders
+        .filter((o: any) => ['PAID', 'PROCESSING', 'COMPLETED'].includes(o.status))
+        .reduce((sum: number, item: { total: number, status: string }) => sum + item.total, 0);
+      const completedRevenue = link.serviceOrders
+        .filter((o: any) => o.status === 'COMPLETED')
+        .reduce((sum: number, item: { total: number }) => sum + item.total, 0);
+
       const appliedCommissionPercent = getCommissionPercentByTarget({
         defaultPercent: commissionPercent,
         config: parsedConfig,
         servicePackageId: link.servicePackageId,
       });
       const commission = Math.round((revenue * appliedCommissionPercent) / 100);
+      const completedCommission = Math.round((completedRevenue * appliedCommissionPercent) / 100);
 
       return {
         id: link.id,
@@ -227,9 +252,20 @@ export async function GET(request: NextRequest) {
         paidOrders,
         revenue,
         commission,
+        completedCommission,
         commissionPercent: appliedCommissionPercent,
         createdAt: link.createdAt,
         shareUrl: `${baseUrl}/services?aff=${encodeURIComponent(link.code)}&spkg=${encodeURIComponent(link.servicePackageId)}`,
+        orderProgress: link.serviceOrders.map((o: any) => ({
+          id: o.id,
+          invoiceId: o.invoiceId,
+          itemName: o.packageName || link.servicePackage.name,
+          customerName: o.customerName,
+          status: o.status,
+          total: o.total,
+          createdAt: o.createdAt,
+          updatedAt: o.updatedAt,
+        })),
       };
     });
 
@@ -238,15 +274,21 @@ export async function GET(request: NextRequest) {
     );
 
     const totalCommission = linkItems.reduce((sum, item) => sum + item.commission, 0);
+    const totalCompletedCommission = linkItems.reduce((sum, item) => sum + item.completedCommission, 0);
+
     const reservedBalance = payoutRequests
       .filter((item) => item.status !== 'REJECTED')
       .reduce((sum, item) => sum + (item.approvedAmount ?? item.requestedAmount), 0);
-    const availableBalance = Math.max(totalCommission - reservedBalance, 0);
+    const availableBalance = Math.max(totalCompletedCommission - reservedBalance, 0);
+
+    const orderProgress = [...packageLinkItems.flatMap(l => l.orderProgress), ...serviceLinkItems.flatMap(l => l.orderProgress)]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return NextResponse.json({
       packages: packageItems,
       servicePackages: servicePackageItems,
       links: linkItems,
+      orderProgress,
       syncInfo: {
         packageCount: parsedConfig.syncedPackageIds.length,
         servicePackageCount: parsedConfig.syncedServicePackageIds.length,

@@ -14,6 +14,13 @@ export async function GET() {
             service: true,
           },
         },
+        affiliateLink: {
+          include: {
+            customer: {
+              select: { id: true, name: true, email: true }
+            }
+          }
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

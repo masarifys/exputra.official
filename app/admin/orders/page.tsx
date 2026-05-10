@@ -26,6 +26,8 @@ interface Order {
   package?: { id: string; name: string; duration: number } | null;
   promo: { code: string } | null;
   services?: { id: string; service: { name: string }; price: number }[];
+  affiliateLinkId?: string | null;
+  affiliateLink?: { customer: { id: string; name: string; email: string } } | null;
 }
 
 const statusConfig: Record<string, { bg: string; text: string; icon: string; label: string }> = {
@@ -60,6 +62,9 @@ export default function OrdersPage() {
   const [services, setServices] = useState<any[]>([]);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [selectedUpgradePackage, setSelectedUpgradePackage] = useState<string>('');
+  const [affiliators, setAffiliators] = useState<any[]>([]);
+  const [selectedAffiliatorId, setSelectedAffiliatorId] = useState<string>('');
+  const [assigningAffiliate, setAssigningAffiliate] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -68,18 +73,20 @@ export default function OrdersPage() {
 
   const fetchMetadata = async () => {
     try {
-      const [c, d, p, t, s] = await Promise.all([
+      const [c, d, p, t, s, affs] = await Promise.all([
         fetch('/api/admin/clients').then(res => res.json()),
         fetch('/api/public/domains').then(res => res.json()),
         fetch('/api/public/packages').then(res => res.json()),
         fetch('/api/public/templates').then(res => res.json()),
-        fetch('/api/public/services').then(res => res.json())
+        fetch('/api/public/services').then(res => res.json()),
+        fetch('/api/admin/affiliators').then(res => res.json())
       ]);
       setClients(c);
       setDomains(d);
       setPackages(p);
       setTemplates(t);
       setServices(s);
+      setAffiliators(affs || []);
     } catch (error) {
       console.error('Failed to fetch metadata:', error);
     }
@@ -125,10 +132,34 @@ export default function OrdersPage() {
       });
       if (res.ok) {
         fetchOrders();
-        setSelectedOrder(null);
+        setSelectedOrder((prev) => prev ? { ...prev, status } : null);
       }
     } catch (error) {
       console.error('Failed to update order:', error);
+    }
+  };
+
+  const assignAffiliate = async (orderId: string, affiliatorId: string) => {
+    try {
+      setAssigningAffiliate(true);
+      const res = await fetch(`/api/admin/orders/${orderId}/affiliate`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ affiliatorId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Affiliate updated successfully');
+        fetchOrders();
+        setSelectedOrder(null);
+      } else {
+        alert(data.message || 'Failed to assign affiliate');
+      }
+    } catch (error) {
+      console.error('Failed to assign affiliate:', error);
+      alert('Error updating affiliate');
+    } finally {
+      setAssigningAffiliate(false);
     }
   };
 
@@ -319,7 +350,10 @@ export default function OrdersPage() {
                     {/* Actions */}
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setSelectedOrder(order)}
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setSelectedAffiliatorId(order.affiliateLink?.customer?.id || '');
+                        }}
                         className="p-3 hover:bg-blue-50 rounded-lg transition-colors text-blue-600"
                         title="View Details"
                       >
@@ -532,6 +566,34 @@ export default function OrdersPage() {
                       <p className="text-sm"><strong>Template:</strong> {selectedOrder.template?.name}</p>
                       <p className="text-sm"><strong>Package:</strong> {selectedOrder.package?.name}</p>
                     </div>
+                  </div>
+
+                  {/* Affiliate Info */}
+                  <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
+                    <p className="text-xs text-purple-600 font-semibold mb-3 uppercase">Affiliate Assignment</p>
+                    {selectedOrder.packageId ? (
+                      <div className="flex gap-2">
+                        <select
+                          value={selectedAffiliatorId}
+                          onChange={(e) => setSelectedAffiliatorId(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                        >
+                          <option value="">No Affiliate</option>
+                          {affiliators.map(aff => (
+                            <option key={aff.id} value={aff.id}>{aff.name} ({aff.email})</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => assignAffiliate(selectedOrder.id, selectedAffiliatorId)}
+                          disabled={assigningAffiliate || selectedAffiliatorId === (selectedOrder.affiliateLink?.customer?.id || '')}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors text-sm font-medium"
+                        >
+                          {assigningAffiliate ? 'Saving...' : 'Apply'}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">This order cannot be assigned to an affiliate because it has no package.</p>
+                    )}
                   </div>
 
                   {/* Pricing */}

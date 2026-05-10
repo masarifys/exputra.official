@@ -233,7 +233,7 @@ export async function GET() {
     }> = [];
 
     links.forEach((link) => {
-      const paidOrders = link.orders.filter((order) => order.status === 'PAID');
+      const paidOrders = link.orders.filter((order) => ['PAID', 'PROCESSING', 'COMPLETED'].includes(order.status));
       const revenue = paidOrders.reduce((sum, order) => sum + order.total, 0);
       const linkCommissionPercent = getCommissionPercentByTarget({
         defaultPercent: commissionPercent,
@@ -275,14 +275,14 @@ export async function GET() {
           packageName: link.package.name,
           orderTotal: order.total,
           commission: txCommission,
-          status: order.status === 'PAID' ? 'VERIFIED' : 'PENDING',
+          status: ['PAID', 'PROCESSING', 'COMPLETED'].includes(order.status) ? 'VERIFIED' : 'PENDING',
           createdAt: order.createdAt,
         });
       });
     });
 
     serviceLinks.forEach((link) => {
-      const paidOrders = link.serviceOrders.filter((order) => order.status === 'PAID');
+      const paidOrders = link.serviceOrders.filter((order) => ['PAID', 'PROCESSING', 'COMPLETED'].includes(order.status));
       const revenue = paidOrders.reduce((sum, order) => sum + order.total, 0);
       const serviceCommissionPercent = getCommissionPercentByTarget({
         defaultPercent: commissionPercent,
@@ -324,7 +324,7 @@ export async function GET() {
           packageName: `${link.servicePackage.service.name} - ${link.servicePackage.name}`,
           orderTotal: order.total,
           commission: txCommission,
-          status: order.status === 'PAID' ? 'VERIFIED' : 'PENDING',
+          status: ['PAID', 'PROCESSING', 'COMPLETED'].includes(order.status) ? 'VERIFIED' : 'PENDING',
           createdAt: order.createdAt,
         });
       });
@@ -382,7 +382,7 @@ export async function GET() {
 
     const campaignLinks = links.map((link) => {
       const revenue = link.orders
-        .filter((order) => order.status === 'PAID')
+        .filter((order) => ['PAID', 'PROCESSING', 'COMPLETED'].includes(order.status))
         .reduce((sum, order) => sum + order.total, 0);
       const linkCommissionPercent = getCommissionPercentByTarget({
         defaultPercent: commissionPercent,
@@ -410,7 +410,7 @@ export async function GET() {
 
     const serviceCampaignLinks = serviceLinks.map((link) => {
       const revenue = link.serviceOrders
-        .filter((order) => order.status === 'PAID')
+        .filter((order) => ['PAID', 'PROCESSING', 'COMPLETED'].includes(order.status))
         .reduce((sum, order) => sum + order.total, 0);
       const appliedCommissionPercent = getCommissionPercentByTarget({
         defaultPercent: commissionPercent,
