@@ -281,7 +281,10 @@ export async function GET(request: NextRequest) {
       .reduce((sum, item) => sum + (item.approvedAmount ?? item.requestedAmount), 0);
     const availableBalance = Math.max(totalCompletedCommission - reservedBalance, 0);
 
-    const orderProgress = [...packageLinkItems.flatMap(l => l.orderProgress), ...serviceLinkItems.flatMap(l => l.orderProgress)]
+    const orderProgress = [
+      ...packageLinkItems.flatMap((l: (typeof packageLinkItems)[number]) => l.orderProgress),
+      ...serviceLinkItems.flatMap((l: (typeof serviceLinkItems)[number]) => l.orderProgress),
+    ]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return NextResponse.json({
