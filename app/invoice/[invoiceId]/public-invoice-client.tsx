@@ -75,7 +75,8 @@ export default function PublicInvoiceClient({ invoice }: { invoice: PublicInvoic
     const [error, setError] = useState('');
     const [paymentResult, setPaymentResult] = useState<any>(null);
     const remainingAmount = Math.max(0, invoice.total - invoice.amountPaid);
-    const canPayOnline = Boolean(invoice.onlinePayment?.enabled) && remainingAmount > 0 && invoice.status !== 'CANCELLED';
+    // Allow online payment for website/service orders or for manual invoices
+    const canPayOnline = (Boolean(invoice.onlinePayment?.enabled) || invoice.kind === 'MANUAL') && remainingAmount > 0 && invoice.status !== 'CANCELLED';
 
     const baseUrl = useMemo(() => {
         if (typeof window !== 'undefined') {
@@ -86,7 +87,8 @@ export default function PublicInvoiceClient({ invoice }: { invoice: PublicInvoic
     }, []);
 
     const handlePayment = async () => {
-        if (!invoice.onlinePayment?.enabled) {
+        // allow manual invoices to proceed even if `onlinePayment` mapping is null
+        if (!invoice.onlinePayment?.enabled && invoice.kind !== 'MANUAL') {
             setError('Pembayaran online tidak tersedia untuk invoice ini.');
             return;
         }
@@ -113,20 +115,25 @@ export default function PublicInvoiceClient({ invoice }: { invoice: PublicInvoic
                     productDetails: `Payment for Invoice #${invoice.invoiceNumber}`,
                     paymentMethod: method.duitkuCode,
                     returnUrl: `${baseUrl}/invoice/${invoice.invoiceId}`,
-                    orderData: invoice.onlinePayment.orderType === 'service'
+                    orderData: invoice.kind === 'MANUAL' || !invoice.onlinePayment
                         ? {
-                            serviceFlow: true,
-                            serviceOrder: invoice.onlinePayment.serviceOrder,
+                            manualInvoice: true,
+                            invoiceId: invoice.invoiceId,
                         }
-                        : {
-                            domainName: invoice.onlinePayment.domainName,
-                            domainId: invoice.onlinePayment.domainId,
-                            templateId: invoice.onlinePayment.templateId,
-                            packageId: invoice.onlinePayment.packageId,
-                            subtotal: invoice.subtotal,
-                            discount: invoice.discount,
-                            services: invoice.onlinePayment.services || [],
-                        },
+                        : invoice.onlinePayment.orderType === 'service'
+                            ? {
+                                serviceFlow: true,
+                                serviceOrder: invoice.onlinePayment.serviceOrder,
+                            }
+                            : {
+                                domainName: invoice.onlinePayment.domainName,
+                                domainId: invoice.onlinePayment.domainId,
+                                templateId: invoice.onlinePayment.templateId,
+                                packageId: invoice.onlinePayment.packageId,
+                                subtotal: invoice.subtotal,
+                                discount: invoice.discount,
+                                services: invoice.onlinePayment.services || [],
+                            },
                 }),
             });
 
