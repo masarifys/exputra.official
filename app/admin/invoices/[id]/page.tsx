@@ -46,6 +46,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     const [paymentNotes, setPaymentNotes] = useState('');
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
     const [submittingPayment, setSubmittingPayment] = useState(false);
+    const publicInvoiceBaseUrl = 'https://exputra.id';
 
     const fetchInvoice = useCallback(async () => {
         try {
@@ -382,10 +383,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                             <input 
                                 type="text"
                                 readOnly
-                                value={`https://exputra.app/invoice/${invoice.id}`}
+                                value={`${publicInvoiceBaseUrl}/invoice/${invoice.id}`}
                                 className="w-full bg-transparent px-3 py-2 text-sm text-gray-600 focus:outline-none"
                             />
-                            <button className="p-2 bg-white rounded shadow-sm border border-gray-200 text-gray-600 hover:text-blue-600" onClick={() => navigator.clipboard.writeText(`https://exputra.app/invoice/${invoice.id}`)}>
+                            <button className="p-2 bg-white rounded shadow-sm border border-gray-200 text-gray-600 hover:text-blue-600" onClick={() => navigator.clipboard.writeText(`${publicInvoiceBaseUrl}/invoice/${invoice.id}`)}>
                                 <Copy className="w-4 h-4" />
                             </button>
                         </div>
