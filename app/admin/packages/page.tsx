@@ -17,6 +17,10 @@ interface Package {
   freeDomain: boolean;
   freeTemplate: boolean;
   discountBadge?: string;
+  orderLimit: number | null;
+  orderCount: number;
+  remainingOrders: number | null;
+  isSoldOut: boolean;
   isActive: boolean;
 }
 
@@ -41,6 +45,7 @@ export default function PackagesPage() {
     freeTemplate: false,
     freeTemplateIds: [] as string[],
     discountBadge: '',
+    orderLimit: '' as number | '',
     isActive: true,
   });
   const [saving, setSaving] = useState(false);
@@ -106,6 +111,7 @@ export default function PackagesPage() {
         freeTemplate: pkg.freeTemplate ?? false,
         freeTemplateIds: pkg.freeTemplates ? pkg.freeTemplates.map((t: any) => t.id) : [],
         discountBadge: pkg.discountBadge || '',
+        orderLimit: pkg.orderLimit ?? '',
         isActive: pkg.isActive,
       });
     } else {
@@ -124,6 +130,7 @@ export default function PackagesPage() {
         freeTemplate: false,
         freeTemplateIds: [],
         discountBadge: '',
+        orderLimit: '' as number | '',
         isActive: true,
       });
     }
@@ -148,7 +155,10 @@ export default function PackagesPage() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          orderLimit: formData.orderLimit === '' ? null : formData.orderLimit,
+        }),
       });
 
       if (res.ok) {
@@ -249,6 +259,11 @@ export default function PackagesPage() {
                 <p className="text-4xl font-bold text-blue-600">
                   IDR {pkg.price.toLocaleString('id-ID')}
                 </p>
+                <div className={`mt-4 rounded-lg border px-3 py-2 text-sm font-semibold ${pkg.isSoldOut ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-100 bg-blue-50 text-blue-700'}`}>
+                  {pkg.orderLimit === null
+                    ? `${pkg.orderCount} order · Tanpa batas`
+                    : `${pkg.orderCount}/${pkg.orderLimit} order${pkg.isSoldOut ? ' · Limit habis' : ` · Sisa ${pkg.remainingOrders}`}`}
+                </div>
               </div>
 
               {/* Free Domain Badge */}
@@ -415,6 +430,24 @@ export default function PackagesPage() {
                   placeholder="Contoh: 90% OFF, Limited Promo, Hemat 50%"
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Limit Order (Opsional)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={formData.orderLimit}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    orderLimit: e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value, 10) || 1),
+                  })}
+                  placeholder="Kosongkan untuk tanpa batas"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">Order selain status dibatalkan akan dihitung ke limit.</p>
               </div>
 
               <div>

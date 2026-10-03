@@ -20,6 +20,10 @@ interface PackageFromDB {
   discountBadge?: string;
   freeDomains: { id: string; extension: string }[];
   freeTemplates: { id: string; name: string }[];
+  orderLimit: number | null;
+  orderCount: number;
+  remainingOrders: number | null;
+  isSoldOut: boolean;
 }
 
 interface ServiceFromDB {
@@ -74,6 +78,7 @@ export default function PackageStep() {
   }, [fetchData]);
 
   const handlePackageSelect = useCallback((pkg: PackageFromDB) => {
+    if (pkg.isSoldOut) return;
     const priceForDuration =
       selectedDuration === 1 ? (pkg.price1Year || pkg.price) :
       selectedDuration === 2 ? (pkg.price2Year || pkg.price * 2) :
@@ -95,11 +100,20 @@ export default function PackageStep() {
     const affiliatePackageId = localStorage.getItem('affiliate_package_id');
     if (!affiliatePackageId) return;
 
-    const promotedPackage = packages.find((pkg) => pkg.id === affiliatePackageId);
+    const promotedPackage = packages.find((pkg) => pkg.id === affiliatePackageId && !pkg.isSoldOut);
     if (promotedPackage) {
       handlePackageSelect(promotedPackage);
     }
   }, [loading, packages, selectedPackage, handlePackageSelect]);
+
+  useEffect(() => {
+    if (!loading && selectedPackage) {
+      const currentPackage = packages.find((pkg) => pkg.id === selectedPackage.id);
+      if (!currentPackage || currentPackage.isSoldOut) {
+        setSelectedPackage(null);
+      }
+    }
+  }, [loading, packages, selectedPackage, setSelectedPackage]);
 
   // Sync selected add-ons with available add-ons
   // This handles the case where a user selected an add-on that is no longer available/active
@@ -201,7 +215,8 @@ export default function PackageStep() {
               onClick={() => {
                 setSelectedDuration(duration);
                 if (selectedPackage) {
-                  handlePackageSelect(packages.find(p => p.id === selectedPackage.id)!);
+                  const currentPackage = packages.find(p => p.id === selectedPackage.id);
+                  if (currentPackage) handlePackageSelect(currentPackage);
                 }
               }}
               className={`w-full px-2 sm:px-6 py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg whitespace-nowrap transition-all duration-200 ${
@@ -236,11 +251,16 @@ export default function PackageStep() {
             <div
               key={pkg.id}
               onClick={() => handlePackageSelect(pkg)}
-              className={`rounded-xl overflow-hidden cursor-pointer transition-all relative ${isSelected
+              className={`rounded-xl overflow-hidden transition-all relative ${pkg.isSoldOut ? 'cursor-not-allowed opacity-65 grayscale' : 'cursor-pointer'} ${isSelected
                 ? 'ring-2 ring-cyan-500 shadow-xl'
-                : 'shadow-lg hover:shadow-xl'
+                : `shadow-lg ${pkg.isSoldOut ? '' : 'hover:shadow-xl'}`
                 } ${pkg.isPopular ? 'bg-gradient-to-br from-gray-800 to-gray-900' : 'bg-gradient-to-br from-gray-700 to-gray-800'}`}
             >
+              {pkg.isSoldOut && (
+                <div className="absolute inset-x-0 top-0 z-10 bg-red-600 py-1.5 text-center text-xs font-bold uppercase tracking-wide text-white">
+                  Limit Order Habis
+                </div>
+              )}
               {pkg.isPopular && (
                 <div className="absolute top-0 right-0">
                   <span className="px-3 py-1 bg-orange-500 text-white text-xs font-semibold rounded-bl-lg">
@@ -265,6 +285,11 @@ export default function PackageStep() {
                   ).toLocaleString('id-ID')}
                 </p>
                 <p className="text-xs text-gray-400 mb-4">/{selectedDuration} tahun</p>
+                {pkg.orderLimit !== null && (
+                  <p className={`mb-4 text-xs font-semibold ${pkg.isSoldOut ? 'text-red-300' : 'text-cyan-300'}`}>
+                    {pkg.isSoldOut ? 'Tidak dapat dipesan' : `Tersisa ${pkg.remainingOrders} order`}
+                  </p>
+                )}
 
                 {features.length > 0 && (
                   <>
@@ -299,12 +324,15 @@ export default function PackageStep() {
                 )}
 
                 <button
-                  className={`w-full py-2.5 rounded-lg font-semibold transition-colors text-sm ${isSelected
-                    ? 'bg-cyan-500 text-white'
-                    : 'bg-cyan-400 text-gray-900 hover:bg-cyan-300'
+                  disabled={pkg.isSoldOut}
+                  className={`w-full py-2.5 rounded-lg font-semibold transition-colors text-sm ${pkg.isSoldOut
+                    ? 'bg-gray-500 text-gray-200 cursor-not-allowed'
+                    : isSelected
+                      ? 'bg-cyan-500 text-white'
+                      : 'bg-cyan-400 text-gray-900 hover:bg-cyan-300'
                     }`}
                 >
-                  {isSelected ? 'Terpilih ✓' : 'Pesan Sekarang'}
+                  {pkg.isSoldOut ? 'Limit Habis' : isSelected ? 'Terpilih ✓' : 'Pesan Sekarang'}
                 </button>
               </div>
             </div>

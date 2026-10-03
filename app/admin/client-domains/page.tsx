@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Globe, Search, Plus, Trash2, Edit, X, Zap } from 'lucide-react';
+import { Globe, Search, Plus, Trash2, Edit, X, Zap, RefreshCw } from 'lucide-react';
 import DataExportImport from '@/components/DataExportImport';
 import { formatDateShort } from '@/lib/utils';
 
@@ -59,6 +59,9 @@ export default function DomainsPage() {
     const [availableOrders, setAvailableOrders] = useState<any[]>([]);
     const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
     const [autoAddLoading, setAutoAddLoading] = useState(false);
+    const [checkingWhoisIds, setCheckingWhoisIds] = useState<string[]>([]);
+    const [checkingAllWhois, setCheckingAllWhois] = useState(false);
+    const [whoisNotice, setWhoisNotice] = useState('');
 
     const fetchData = useCallback(async () => {
         try {
@@ -122,6 +125,43 @@ export default function DomainsPage() {
     const getDaysUntilExpiry = (expiredAt: string) => {
         const days = Math.ceil((new Date(expiredAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
         return days;
+    };
+
+    const handleWhoisCheck = async (ids?: string[]) => {
+        const isBulkCheck = !ids || ids.length === 0;
+        if (isBulkCheck) {
+            setCheckingAllWhois(true);
+        } else {
+            setCheckingWhoisIds(prev => [...new Set([...prev, ...ids])]);
+        }
+        setWhoisNotice('');
+
+        try {
+            const response = await fetch('/api/admin/client-domains/whois', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ids?.length ? { ids } : {}),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Pengecekan WHOIS gagal');
+
+            const failedDomains = (result.results || [])
+                .filter((item: { success: boolean }) => !item.success)
+                .slice(0, 3)
+                .map((item: { domainName: string; error: string }) => `${item.domainName}: ${item.error}`);
+            setWhoisNotice(
+                `${result.message}${failedDomains.length ? ` — Gagal: ${failedDomains.join('; ')}` : ''}`,
+            );
+            await fetchData();
+        } catch (error) {
+            setWhoisNotice(error instanceof Error ? error.message : 'Pengecekan WHOIS gagal');
+        } finally {
+            if (isBulkCheck) {
+                setCheckingAllWhois(false);
+            } else {
+                setCheckingWhoisIds(prev => prev.filter(id => !ids.includes(id)));
+            }
+        }
     };
 
     const handleOpenAutoAddModal = async () => {
@@ -254,6 +294,14 @@ export default function DomainsPage() {
                         </label>
                     </div>
                     <div className="flex gap-2">
+                        <button
+                            onClick={() => handleWhoisCheck()}
+                            disabled={checkingAllWhois || domains.length === 0}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${checkingAllWhois ? 'animate-spin' : ''}`} />
+                            {checkingAllWhois ? 'Mengecek...' : 'Cek Semua Domain'}
+                        </button>
                         <DataExportImport
                             data={domains}
                             fileName="client_domains"
@@ -279,8 +327,14 @@ export default function DomainsPage() {
                 </div>
             </div>
 
+            {whoisNotice && (
+                <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                    {whoisNotice}
+                </div>
+            )}
+
             {/* Table */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -291,6 +345,7 @@ export default function DomainsPage() {
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Klien</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Registrar</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Server</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Terdaftar</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Berakhir</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Status</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Aksi</th>
@@ -298,9 +353,9 @@ export default function DomainsPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                         {loading ? (
-                            <tr><td colSpan={8} className="px-6 py-4 text-center text-gray-500"><div className="inline-flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>Loading...</div></td></tr>
+                            <tr><td colSpan={9} className="px-6 py-4 text-center text-gray-500"><div className="inline-flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>Loading...</div></td></tr>
                         ) : domains.length === 0 ? (
-                            <tr><td colSpan={8} className="px-6 py-4 text-center text-gray-500">Domain tidak ditemukan</td></tr>
+                            <tr><td colSpan={9} className="px-6 py-4 text-center text-gray-500">Domain tidak ditemukan</td></tr>
                         ) : (
                             domains.map((domain) => {
                                 const daysLeft = getDaysUntilExpiry(domain.expiredAt);
@@ -329,6 +384,9 @@ export default function DomainsPage() {
                                                 <span className="text-gray-400 text-xs">Tidak Terkait</span>
                                             )}
                                         </td>
+                                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                                            {formatDateShort(domain.registeredAt)}
+                                        </td>
                                         <td className="px-6 py-4 text-sm">
                                             <div className="font-semibold text-gray-900">{formatDateShort(domain.expiredAt)}</div>
                                             {daysLeft > 0 && daysLeft <= 30 && (
@@ -348,6 +406,14 @@ export default function DomainsPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-sm space-x-2 whitespace-nowrap">
+                                            <button
+                                                onClick={() => handleWhoisCheck([domain.id])}
+                                                disabled={checkingAllWhois || checkingWhoisIds.includes(domain.id)}
+                                                className="text-indigo-600 hover:text-indigo-900 disabled:text-gray-400 font-semibold inline-flex items-center gap-1"
+                                            >
+                                                <RefreshCw className={`w-4 h-4 ${checkingWhoisIds.includes(domain.id) ? 'animate-spin' : ''}`} />
+                                                Cek
+                                            </button>
                                             <button onClick={() => { setEditing(domain); setShowModal(true); }} className="text-blue-600 hover:text-blue-900 font-semibold inline-flex items-center gap-1">
                                                 <Edit className="w-4 h-4" />
                                                 Edit

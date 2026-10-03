@@ -32,6 +32,7 @@ export const packageSchema = z.object({
   freeTemplate: z.boolean().default(false),
   freeTemplateIds: z.array(z.string()).optional(),
   discountBadge: z.string().optional(),
+  orderLimit: z.number().int().min(1).nullable().optional(),
   isActive: z.boolean().default(true),
 });
 

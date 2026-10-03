@@ -145,14 +145,14 @@ Pesan: ${contactForm.message}`;
   ];
 
   const socialMediaTemplates = [
-    { id: 'sm1', name: 'Desain Sumur Bor', category: 'Social Media', price: 50000, thumbnail: 'https://wiki.exputra.id/images/b/ba/Sosial_Media_Sumur_Bor.png', isPaid: true },
-    { id: 'sm2', name: 'Koperasi Merah Putih', category: 'Social Media', price: 50000, thumbnail: 'https://wiki.exputra.id/images/b/b9/Sosial_Media_Koperasi_Merah_putih.png', isPaid: true },
-    { id: 'sm3', name: 'Promo Daging Segar', category: 'Social Media', price: 50000, thumbnail: 'https://wiki.exputra.id/images/6/6c/Sosial_Media_Daging.png', isPaid: true },
-    { id: 'sm4', name: 'Spesial Kebab', category: 'Social Media', price: 50000, thumbnail: 'https://wiki.exputra.id/images/8/8d/Sosial_Media_kebab.png', isPaid: true },
-    { id: 'sm5', name: 'Burger Lezat', category: 'Social Media', price: 50000, thumbnail: 'https://wiki.exputra.id/images/2/26/Sosial_Media_Burger.png', isPaid: true },
-    { id: 'sm6', name: 'Ayam Geprek Spesial', category: 'Social Media', price: 50000, thumbnail: 'https://wiki.exputra.id/images/b/bf/Sosial_Media_ayamgeprek.png', isPaid: true },
-    { id: 'sm7', name: 'Koper Travel', category: 'Social Media', price: 50000, thumbnail: 'https://wiki.exputra.id/images/2/27/Sosial_Media_koper.png', isPaid: true },
-    { id: 'sm8', name: 'Seblak Pedas Nampol', category: 'Social Media', price: 50000, thumbnail: 'https://wiki.exputra.id/images/f/f0/Sosial_Media_seblak.png', isPaid: true },
+    { id: 'sm1', name: 'Desain Sumur Bor', category: 'Social Media', price: 50000, thumbnail: '/images/social-media/sumur-bor.png', isPaid: true },
+    { id: 'sm2', name: 'Koperasi Merah Putih', category: 'Social Media', price: 50000, thumbnail: '/images/social-media/koperasi-merah-putih.png', isPaid: true },
+    { id: 'sm3', name: 'Promo Daging Segar', category: 'Social Media', price: 50000, thumbnail: '/images/social-media/daging-segar.png', isPaid: true },
+    { id: 'sm4', name: 'Spesial Kebab', category: 'Social Media', price: 50000, thumbnail: '/images/social-media/kebab.png', isPaid: true },
+    { id: 'sm5', name: 'Burger Lezat', category: 'Social Media', price: 50000, thumbnail: '/images/social-media/burger.png', isPaid: true },
+    { id: 'sm6', name: 'Ayam Geprek Spesial', category: 'Social Media', price: 50000, thumbnail: '/images/social-media/ayam-geprek.png', isPaid: true },
+    { id: 'sm7', name: 'Koper Travel', category: 'Social Media', price: 50000, thumbnail: '/images/social-media/koper-travel.png', isPaid: true },
+    { id: 'sm8', name: 'Seblak Pedas Nampol', category: 'Social Media', price: 50000, thumbnail: '/images/social-media/seblak.png', isPaid: true },
   ];
 
   return (
@@ -527,7 +527,7 @@ Pesan: ${contactForm.message}`;
                       src={template.thumbnail}
                       alt={template.name}
                       fill
-                      unoptimized={true}
+                      sizes="(max-width: 768px) 320px, 448px"
                       className="object-contain p-2 group-hover/item:scale-105 transition-transform duration-500"
                     />
                     {template.isPaid && (
@@ -555,7 +555,7 @@ Pesan: ${contactForm.message}`;
                       src={template.thumbnail}
                       alt={template.name}
                       fill
-                      unoptimized={true}
+                      sizes="(max-width: 768px) 320px, 448px"
                       className="object-contain p-2 group-hover/item:scale-105 transition-transform duration-500"
                     />
                     {template.isPaid && (

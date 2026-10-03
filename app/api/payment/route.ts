@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { sendWhatsAppMessage } from '@/lib/fonnte';
+import { countedOrderWhere } from '@/lib/package-order-limit';
 
 const prismaAny = prisma as any;
 
@@ -10,6 +11,31 @@ const DUITKU_API_URL = process.env.DUITKU_BASE_URL ? `${process.env.DUITKU_BASE_
 const MERCHANT_CODE = process.env.DUITKU_MERCHANT_CODE || 'D9808';
 const API_KEY = process.env.DUITKU_API_KEY || '9329b1b8af27f2d3f9330075391fc250';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
+
+class PackageLimitReachedError extends Error {
+  constructor(readonly packageName: string) {
+    super(`Limit order paket ${packageName} sudah habis`);
+    this.name = 'PackageLimitReachedError';
+  }
+}
+
+async function getPackageOrderAvailability(packageId: string) {
+  const [pkg, orderCount] = await Promise.all([
+    prisma.package.findUnique({
+      where: { id: packageId },
+      select: { id: true, name: true, isActive: true, orderLimit: true },
+    }),
+    prisma.order.count({
+      where: { packageId, ...countedOrderWhere },
+    }),
+  ]);
+
+  return {
+    pkg,
+    orderCount,
+    isSoldOut: Boolean(pkg?.orderLimit !== null && pkg?.orderLimit !== undefined && orderCount >= pkg.orderLimit),
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +57,22 @@ export async function POST(request: NextRequest) {
     const resolvedReturnUrl = typeof returnUrl === 'string' && returnUrl.trim().length > 0
       ? returnUrl
       : `${baseUrl}/order/payment/success`;
+
+    if (orderData?.packageId && !orderData?.serviceFlow) {
+      const availability = await getPackageOrderAvailability(orderData.packageId);
+      if (!availability.pkg || !availability.pkg.isActive) {
+        return NextResponse.json({
+          success: false,
+          error: 'Paket tidak tersedia atau sudah dinonaktifkan',
+        }, { status: 400 });
+      }
+      if (availability.isSoldOut) {
+        return NextResponse.json({
+          success: false,
+          error: `Limit order paket ${availability.pkg.name} sudah habis`,
+        }, { status: 409 });
+      }
+    }
 
     const signature = createHash('md5')
       .update(MERCHANT_CODE + orderId + amount + API_KEY)
@@ -134,31 +176,57 @@ export async function POST(request: NextRequest) {
 
           if (!existingOrder) {
             console.log('Saving new order to database:', orderId);
-            await prisma.order.create({
-              data: {
-                invoiceId: orderId,
-                domainName: orderData.domainName,
-                domainId: orderData.domainId,
-                templateId: orderData.templateId,
-                packageId: orderData.packageId,
-                promoId: orderData.promoId || null,
-                customerName: customerName,
-                customerEmail: customerEmail,
-                customerPhone: customerPhone,
-                subtotal: orderData.subtotal,
-                discount: orderData.discount || 0,
-                total: amount,
-                affiliateLinkId,
-                paymentMethod: paymentMethod,
-                paymentRef: data.reference,
-                status: 'PENDING',
-                services: orderData.services?.length > 0 ? {
-                  create: orderData.services.map((service: { id: string; price: number }) => ({
-                    serviceId: service.id,
-                    price: service.price,
-                   })),
-                } : undefined,
-              },
+            await prisma.$transaction(async (transaction) => {
+              await transaction.$queryRaw`
+                SELECT id FROM \`package\`
+                WHERE id = ${orderData.packageId}
+                FOR UPDATE
+              `;
+
+              const [lockedPackage, orderCount] = await Promise.all([
+                transaction.package.findUnique({
+                  where: { id: orderData.packageId },
+                  select: { name: true, isActive: true, orderLimit: true },
+                }),
+                transaction.order.count({
+                  where: { packageId: orderData.packageId, ...countedOrderWhere },
+                }),
+              ]);
+
+              if (
+                !lockedPackage
+                || !lockedPackage.isActive
+                || (lockedPackage.orderLimit !== null && orderCount >= lockedPackage.orderLimit)
+              ) {
+                throw new PackageLimitReachedError(lockedPackage?.name || 'dipilih');
+              }
+
+              await transaction.order.create({
+                data: {
+                  invoiceId: orderId,
+                  domainName: orderData.domainName,
+                  domainId: orderData.domainId,
+                  templateId: orderData.templateId,
+                  packageId: orderData.packageId,
+                  promoId: orderData.promoId || null,
+                  customerName: customerName,
+                  customerEmail: customerEmail,
+                  customerPhone: customerPhone,
+                  subtotal: orderData.subtotal,
+                  discount: orderData.discount || 0,
+                  total: amount,
+                  affiliateLinkId,
+                  paymentMethod: paymentMethod,
+                  paymentRef: data.reference,
+                  status: 'PENDING',
+                  services: orderData.services?.length > 0 ? {
+                    create: orderData.services.map((service: { id: string; price: number }) => ({
+                      serviceId: service.id,
+                      price: service.price,
+                    })),
+                  } : undefined,
+                },
+              });
             });
             console.log('New order saved:', orderId);
 
@@ -226,6 +294,12 @@ export async function POST(request: NextRequest) {
             });
           }
         } catch (dbError) {
+          if (dbError instanceof PackageLimitReachedError) {
+            return NextResponse.json({
+              success: false,
+              error: dbError.message,
+            }, { status: 409 });
+          }
           console.error('Failed to save/update order:', dbError);
         }
       } else if (isServiceFlow && serviceOrderPayload?.serviceId) {

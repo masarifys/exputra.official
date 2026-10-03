@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { packageSchema } from '@/lib/validations';
+import { countedOrderWhere, withPackageAvailability } from '@/lib/package-order-limit';
 
 export async function GET() {
   try {
@@ -9,9 +10,12 @@ export async function GET() {
       include: {
         freeDomains: true,
         freeTemplates: true,
+        _count: {
+          select: { orders: { where: countedOrderWhere } },
+        },
       },
     });
-    return NextResponse.json(packages);
+    return NextResponse.json(packages.map(withPackageAvailability));
   } catch (error) {
     console.error('Get Packages Error:', error);
     return NextResponse.json({ message: 'Failed to fetch packages' }, { status: 500 });

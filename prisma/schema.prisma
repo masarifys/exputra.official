@@ -86,6 +86,7 @@ model Package {
   freeTemplate   Boolean         @default(false)
   freeTemplates  Template[]      @relation("PackageFreeTemplates")
   discountBadge  String? // E.g., "90% OFF", "Limited Promo"
+  orderLimit     Int? // Null means unlimited; counts all orders except CANCELLED
   isActive       Boolean         @default(true)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -206,6 +207,7 @@ model Order {
   updatedAt       DateTime       @updatedAt
 
   @@index([affiliateLinkId])
+  @@index([packageId])
   @@map("order")
 }
 
