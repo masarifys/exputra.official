@@ -6,13 +6,13 @@ const domainSchema = z.object({
     clientEmail: z.string().min(1),
     domainName: z.string().min(1),
     registrar: z.string().optional(),
-    registrarId: z.string().optional(),
+    registrarId: z.string().nullable().optional(),
     registeredAt: z.string().transform((str) => new Date(str)),
     expiredAt: z.string().transform((str) => new Date(str)),
     status: z.enum(['ACTIVE', 'EXPIRED', 'PENDING', 'SUSPENDED']).optional(),
     autoRenew: z.boolean().optional(),
     notes: z.string().optional(),
-    serverId: z.string().optional(),
+    serverId: z.string().nullable().optional(),
 });
 
 // GET /api/admin/client-domains/[id]

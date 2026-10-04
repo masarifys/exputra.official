@@ -79,29 +79,13 @@ export async function POST(request: NextRequest) {
         }
 
         const data = validated.data;
-        // Check for serverId which might be in body but not in schema
-        // The previous code had serverId in the schema?
-        // Wait, the previous local schema had serverId: z.string().optional().
-        // My centralized schema DOES NOT have serverId.
-        // I should probably add serverId to the schema or handle it separately.
-        // Let's check existing schema again.
-
-        const serverId = body.serverId; // Extract manually if not in schema
+        const serverId = data.serverId;
 
         const domain = await prisma.clientDomain.create({
             data: {
                 clientEmail: data.clientEmail,
                 domainName: data.domainName,
                 registrarId: data.registrarId || null,
-                // registrar (String) is deprecated in favor of registrarRel, but we might still populate it or ignore it.
-                // The schema has registrarId. If the user passes optional "registrar" string, we might ignore it or store it if needed.
-                // Existing code: registrar: validated.registrarId ? validated.registrar : (validated.registrar || null)
-                // This implies if registrarId is present, use 'registrar' field as name? No, that looks like a bug or legacy.
-                // Let's strict to using registrarId for the relation. 
-                // However, I must ensure I don't break existing logic.
-                // If I look at the centralized schema, I only have registrarId.
-                // Let's assume 'registrar' field on model is legacy/optional.
-
                 registeredAt: new Date(data.registeredAt),
                 expiredAt: new Date(data.expiredAt),
                 status: data.status,
@@ -111,9 +95,6 @@ export async function POST(request: NextRequest) {
                 servers: serverId ? {
                     create: [{
                         server: { connect: { id: serverId } }
-                        // Wait, previous code was: create: [{ serverId: serverId }]
-                        // domainserver model has serverId and domainId.
-                        // So correct prisma syntax is create: [{ serverId: serverId }]
                     }]
                 } : undefined
             },

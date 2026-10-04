@@ -119,6 +119,7 @@ export const clientDomainSchema = z.object({
   clientEmail: z.string().min(1),
   domainName: z.string().min(1, 'Domain name is required'),
   registrarId: z.string().optional().nullable(),
+  serverId: z.string().optional().nullable(),
   registeredAt: z.string().transform((str) => new Date(str)),
   expiredAt: z.string().transform((str) => new Date(str)),
   status: z.enum(['ACTIVE', 'EXPIRED', 'PENDING', 'SUSPENDED']).default('ACTIVE'),
