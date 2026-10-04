@@ -17,6 +17,20 @@ interface Registrar {
     name: string;
 }
 
+interface ClientServer {
+    id: string;
+    clientEmail: string;
+    serverName: string;
+    ipAddress: string;
+}
+
+type BulkDomainUpdates = {
+    clientEmail?: string;
+    registrarId?: string | null;
+    serverId?: string | null;
+    status?: Domain['status'];
+};
+
 interface Domain {
     id: string;
     clientEmail: string;
@@ -47,7 +61,7 @@ export default function DomainsPage() {
     const [domains, setDomains] = useState<Domain[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
     const [registrars, setRegistrars] = useState<Registrar[]>([]);
-    const [servers, setServers] = useState<any[]>([]); // New servers state
+    const [servers, setServers] = useState<ClientServer[]>([]);
     const [loading, setLoading] = useState(true);
     const [clientEmail, setClientEmail] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -62,6 +76,8 @@ export default function DomainsPage() {
     const [checkingWhoisIds, setCheckingWhoisIds] = useState<string[]>([]);
     const [checkingAllWhois, setCheckingAllWhois] = useState(false);
     const [whoisNotice, setWhoisNotice] = useState('');
+    const [showQuickEditModal, setShowQuickEditModal] = useState(false);
+    const [bulkEditLoading, setBulkEditLoading] = useState(false);
 
     const fetchData = useCallback(async () => {
         try {
@@ -109,6 +125,29 @@ export default function DomainsPage() {
             fetchData();
         } catch (error) {
             console.error('Bulk delete failed:', error);
+        }
+    };
+
+    const handleBulkEdit = async (updates: BulkDomainUpdates) => {
+        setBulkEditLoading(true);
+        setWhoisNotice('');
+        try {
+            const response = await fetch('/api/admin/client-domains/bulk-update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selected, updates }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Quick edit domain gagal');
+
+            setWhoisNotice(result.message);
+            setShowQuickEditModal(false);
+            setSelected([]);
+            await fetchData();
+        } catch (error) {
+            setWhoisNotice(error instanceof Error ? error.message : 'Quick edit domain gagal');
+        } finally {
+            setBulkEditLoading(false);
         }
     };
 
@@ -293,7 +332,7 @@ export default function DomainsPage() {
                             <span className="text-sm font-semibold text-gray-900">Akan Berakhir</span>
                         </label>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <button
                             onClick={() => handleWhoisCheck()}
                             disabled={checkingAllWhois || domains.length === 0}
@@ -310,10 +349,19 @@ export default function DomainsPage() {
                             onImport={handleImportDomains}
                         />
                         {selected.length > 0 && (
-                            <button onClick={handleBulkDelete} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">
-                                <Trash2 className="w-4 h-4" />
-                                Hapus ({selected.length})
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => setShowQuickEditModal(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-semibold"
+                                >
+                                    <Edit className="w-4 h-4" />
+                                    Quick Edit ({selected.length})
+                                </button>
+                                <button onClick={handleBulkDelete} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">
+                                    <Trash2 className="w-4 h-4" />
+                                    Hapus ({selected.length})
+                                </button>
+                            </>
                         )}
                         <button onClick={handleOpenAutoAddModal} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">
                             <Zap className="w-4 h-4" />
@@ -432,6 +480,18 @@ export default function DomainsPage() {
             </div>
 
             {showModal && <DomainModal domain={editing} clients={clients} registrars={registrars} servers={servers} onClose={() => { setShowModal(false); setEditing(null); }} onSuccess={() => { setShowModal(false); setEditing(null); fetchData(); }} />}
+
+            {showQuickEditModal && (
+                <BulkQuickEditModal
+                    selectedCount={selected.length}
+                    clients={clients}
+                    registrars={registrars}
+                    servers={servers}
+                    loading={bulkEditLoading}
+                    onClose={() => setShowQuickEditModal(false)}
+                    onSubmit={handleBulkEdit}
+                />
+            )}
             
             {showAutoAddModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -495,7 +555,160 @@ export default function DomainsPage() {
     );
 }
 
-function DomainModal({ domain, clients, registrars, servers, onClose, onSuccess }: { domain: Domain | null; clients: Client[]; registrars: Registrar[]; servers: any[]; onClose: () => void; onSuccess: () => void; }) {
+const UNCHANGED_VALUE = '__UNCHANGED__';
+const CLEAR_VALUE = '__CLEAR__';
+
+function BulkQuickEditModal({
+    selectedCount,
+    clients,
+    registrars,
+    servers,
+    loading,
+    onClose,
+    onSubmit,
+}: {
+    selectedCount: number;
+    clients: Client[];
+    registrars: Registrar[];
+    servers: ClientServer[];
+    loading: boolean;
+    onClose: () => void;
+    onSubmit: (updates: BulkDomainUpdates) => Promise<void>;
+}) {
+    const [clientEmail, setClientEmail] = useState(UNCHANGED_VALUE);
+    const [registrarId, setRegistrarId] = useState(UNCHANGED_VALUE);
+    const [serverId, setServerId] = useState(UNCHANGED_VALUE);
+    const [status, setStatus] = useState(UNCHANGED_VALUE);
+
+    const hasChanges = [clientEmail, registrarId, serverId, status]
+        .some((value) => value !== UNCHANGED_VALUE);
+
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        const updates: BulkDomainUpdates = {};
+
+        if (clientEmail !== UNCHANGED_VALUE) updates.clientEmail = clientEmail;
+        if (registrarId !== UNCHANGED_VALUE) {
+            updates.registrarId = registrarId === CLEAR_VALUE ? null : registrarId;
+        }
+        if (serverId !== UNCHANGED_VALUE) {
+            updates.serverId = serverId === CLEAR_VALUE ? null : serverId;
+        }
+        if (status !== UNCHANGED_VALUE) updates.status = status as Domain['status'];
+
+        await onSubmit(updates);
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">Quick Edit Domain</h2>
+                        <p className="mt-1 text-sm text-gray-500">Edit {selectedCount} domain terpilih sekaligus</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={loading}
+                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-50"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5 p-6">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        Field dengan pilihan <strong>Tidak diubah</strong> tidak akan memengaruhi data lama.
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-900">Client</label>
+                        <select
+                            value={clientEmail}
+                            onChange={(event) => setClientEmail(event.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                        >
+                            <option value={UNCHANGED_VALUE}>Tidak diubah</option>
+                            {clients.map((client) => (
+                                <option key={client.email} value={client.email}>
+                                    {client.name} ({client.email})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-900">Registrar</label>
+                        <select
+                            value={registrarId}
+                            onChange={(event) => setRegistrarId(event.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                        >
+                            <option value={UNCHANGED_VALUE}>Tidak diubah</option>
+                            <option value={CLEAR_VALUE}>Kosongkan registrar</option>
+                            {registrars.map((registrar) => (
+                                <option key={registrar.id} value={registrar.id}>{registrar.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-900">Server Name</label>
+                        <select
+                            value={serverId}
+                            onChange={(event) => setServerId(event.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                        >
+                            <option value={UNCHANGED_VALUE}>Tidak diubah</option>
+                            <option value={CLEAR_VALUE}>Lepaskan server</option>
+                            {servers.map((server) => (
+                                <option key={server.id} value={server.id}>
+                                    {server.serverName} ({server.ipAddress})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-900">Status</label>
+                        <select
+                            value={status}
+                            onChange={(event) => setStatus(event.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                        >
+                            <option value={UNCHANGED_VALUE}>Tidak diubah</option>
+                            <option value="ACTIVE">Aktif</option>
+                            <option value="EXPIRED">Berakhir</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="SUSPENDED">Suspended</option>
+                        </select>
+                    </div>
+
+                    <div className="flex gap-3 border-t border-gray-200 pt-5">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={loading}
+                            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading || !hasChanges}
+                            className="flex-1 rounded-lg bg-amber-500 px-4 py-2 font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {loading ? 'Menyimpan...' : `Terapkan ke ${selectedCount} Domain`}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+function DomainModal({ domain, clients, registrars, servers, onClose, onSuccess }: { domain: Domain | null; clients: Client[]; registrars: Registrar[]; servers: ClientServer[]; onClose: () => void; onSuccess: () => void; }) {
     const [formData, setFormData] = useState({
         clientEmail: domain?.clientEmail || '',
         domainName: domain?.domainName || '',
